@@ -84,9 +84,12 @@ export function Insights({
           )}
         </Popover>
 
-        <span className="btn btn-ghost" style={{ cursor: "default" }}>
-          Last {data.velocity.sprints.length} sprints
-        </span>
+        {data.velocity.sprints.length > 0 && (
+          <span className="btn btn-ghost" style={{ cursor: "default" }}>
+            Last {data.velocity.sprints.length} sprint
+            {data.velocity.sprints.length === 1 ? "" : "s"}
+          </span>
+        )}
       </header>
 
       <div className="panel-body" style={{ gap: 15, padding: "4px 22px 22px" }}>
@@ -97,7 +100,11 @@ export function Insights({
               {data.velocity.average} <span>pts</span>
             </div>
             <div className="stat-note">
-              ±{data.velocity.spread} across {data.velocity.sprints.length} sprints
+              {data.velocity.sprints.length
+                ? `±${data.velocity.spread} across ${data.velocity.sprints.length} sprint${
+                    data.velocity.sprints.length === 1 ? "" : "s"
+                  }`
+                : "no completed sprints yet"}
             </div>
           </div>
 

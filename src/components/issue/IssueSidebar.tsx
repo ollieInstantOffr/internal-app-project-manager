@@ -281,7 +281,7 @@ export function IssueSidebar({
                   className="input input-sm"
                   autoFocus
                   style={{ width: 100 }}
-                  placeholder="WEB-419"
+                  placeholder={`${issue.key.split("-")[0]}-123`}
                   value={blockDraft}
                   onChange={(e) => setBlockDraft(e.target.value)}
                   onBlur={() => setAddingBlock(false)}

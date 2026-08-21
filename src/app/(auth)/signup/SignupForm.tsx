@@ -68,7 +68,7 @@ export default function SignupForm() {
           className="input"
           required
           autoComplete="name"
-          placeholder="Sam Okafor"
+          placeholder="Your name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -84,7 +84,7 @@ export default function SignupForm() {
           type="email"
           required
           autoComplete="email"
-          placeholder="sam@acme.dev"
+          placeholder="you@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />

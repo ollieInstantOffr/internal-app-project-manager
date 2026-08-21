@@ -18,7 +18,8 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: syncs the schema, then seeds only if the database is empty.
+  # One-shot: syncs the schema. The app starts empty — you create the first
+  # account through sign-up.
   migrate:
     build:
       context: .
@@ -30,7 +31,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://arc:arc@db:5432/arc?schema=public
-    command: sh -c "npx prisma db push && npx tsx scripts/seed-if-empty.ts"
+    command: npx prisma db push
 
   web:
     build:

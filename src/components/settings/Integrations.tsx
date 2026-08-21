@@ -48,7 +48,9 @@ export function Integrations({
   tokens,
   github,
   usage,
+  sampleIssueKey,
 }: {
+  sampleIssueKey: string | null;
   rules: Rule[];
   tokens: TokenRow[];
   github: {
@@ -181,7 +183,7 @@ export function Integrations({
               )}
             </div>
 
-            {github.connected && isAdmin && <RuleTester />}
+            {github.connected && isAdmin && <RuleTester sampleKey={sampleIssueKey} />}
           </section>
 
           <section
@@ -338,7 +340,7 @@ function UsageBar({
 }
 
 /** Fires a real automation against a real issue, so the rules can be seen working. */
-function RuleTester() {
+function RuleTester({ sampleKey }: { sampleKey: string | null }) {
   const router = useRouter();
   const { toast } = useToast();
   const [issueKey, setIssueKey] = useState("");
@@ -346,7 +348,7 @@ function RuleTester() {
 
   async function fire(event: string) {
     if (!issueKey.trim()) {
-      toast("Name an issue first, e.g. WEB-408");
+      toast(sampleKey ? `Name an issue first, e.g. ${sampleKey}` : "Create an issue first");
       return;
     }
     setBusy(true);
@@ -372,7 +374,7 @@ function RuleTester() {
         <input
           className="input input-sm"
           style={{ width: 130 }}
-          placeholder="WEB-408"
+          placeholder={sampleKey ?? "ABC-1"}
           value={issueKey}
           onChange={(e) => setIssueKey(e.target.value)}
         />

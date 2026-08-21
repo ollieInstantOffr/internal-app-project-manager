@@ -169,7 +169,7 @@ export default function FirstProject({ githubConnected }: { githubConnected: boo
             id="project-name"
             className="input"
             required={emptyMode}
-            placeholder={repo ? titleize(repo.name) : "Web App"}
+            placeholder={repo ? titleize(repo.name) : "Web app"}
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
           />

@@ -12,12 +12,8 @@
     "docker:reset": "docker compose down -v && docker compose up -d --build",
     "docker:logs": "docker compose logs -f web",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "emails": "tsx scripts/preview-emails.ts"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

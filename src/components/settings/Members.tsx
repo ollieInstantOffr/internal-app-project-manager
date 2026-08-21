@@ -519,7 +519,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             id="inv-emails"
             className="textarea"
             autoFocus
-            placeholder="mira@acme.dev, dev@acme.dev"
+            placeholder="first@company.com, second@company.com"
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
           />

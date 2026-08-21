@@ -34,9 +34,17 @@ export default async function IntegrationsPage() {
       db.activity.count({ where: { orgId: org.id, createdAt: { gte: monthStart } } }),
     ]);
 
+  // Whatever issue is actually to hand, so the rule tester suggests a real key.
+  const sample = await db.issue.findFirst({
+    where: { project: { orgId: org.id }, archivedAt: null },
+    orderBy: { updatedAt: "desc" },
+    select: { key: true },
+  });
+
   return (
     <Integrations
       rules={rules}
+      sampleIssueKey={sample?.key ?? null}
       tokens={tokens.map((t) => ({
         id: t.id,
         name: t.name,

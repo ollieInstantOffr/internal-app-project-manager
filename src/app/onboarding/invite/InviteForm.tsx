@@ -57,7 +57,7 @@ export default function InviteForm({ orgName }: { orgName: string }) {
           id="emails"
           className="textarea"
           autoFocus
-          placeholder={"mira@acme.dev\ndev@acme.dev, ana@acme.dev"}
+          placeholder={"first@company.com\nsecond@company.com, third@company.com"}
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
         />

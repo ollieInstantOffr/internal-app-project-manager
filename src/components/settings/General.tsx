@@ -158,7 +158,7 @@ export function General({
               <input
                 id="me-github"
                 className="input"
-                placeholder="samok"
+                placeholder="your-github-handle"
                 value={githubLogin}
                 onChange={(e) => setGithubLogin(e.target.value.replace(/^@/, ""))}
               />

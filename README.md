@@ -18,22 +18,21 @@ Everything runs in Docker — app and database both.
 docker compose up -d --build
 ```
 
-Open **http://localhost:3321** and sign in as **sam@acme.dev / arcdemo123**
-(`mira@`, `dev@` and `ana@` share the password; Sam is the owner, Mira an admin,
-Dev and Ana members).
+Open **http://localhost:3321**. The app ships with **no data at all** — you land
+on sign-up, and the first account you create becomes the owner of its
+organization. From there it's three short steps: name the organization, invite
+anyone you want, create the first project.
 
 Three services come up: `db` (Postgres 16), `migrate` (a one-shot that syncs the
-schema and seeds the demo org **only when the database is empty**), and `web`
-(the Next.js standalone server). Cold start from an empty volume to a healthy,
-seeded app takes about 15 seconds. Restarting never re-seeds — your data is left
-alone.
+schema), and `web` (the Next.js standalone server). Cold start from an empty
+volume to a healthy app takes about 10 seconds.
 
 | Command | Does |
 | --- | --- |
 | `npm run docker:up` | build and start everything |
 | `npm run docker:logs` | tail the app |
 | `npm run docker:down` | stop, keep the data |
-| `npm run docker:reset` | wipe the volume and start fresh, re-seeded |
+| `npm run docker:reset` | wipe the volume and start over from empty |
 
 `GET /api/health` round-trips the database and backs the container healthcheck.
 The server listens on **3321 inside the container as well**, so the port is the
@@ -46,7 +45,7 @@ Keep the database container and run the server on the host — same port, so
 port is taken.
 
 ```bash
-docker compose up -d db && npm install && npm run db:push && npm run db:seed && npm run dev
+docker compose up -d db && npm install && npm run db:push && npm run dev
 ```
 
 Postgres is published on **5434** for `psql` and `npm run db:studio`; inside the
@@ -68,16 +67,13 @@ containers get theirs from compose. The app degrades gracefully without the rest
 | `CRON_SECRET` | the daily digest endpoint is disabled |
 | `SESSION_SECRET` | a development default is used — set this in production |
 
-The seed builds Acme Engineering: 3 projects, 97 issues, 7 sprints of history,
-5 epics, an inbox, and enough status-change trail for Insights to compute real
-velocity, cycle time and flow.
-
 ---
 
 ## The screens
 
 | Route | Design | What it does |
 | --- | --- | --- |
+| `/` | — | Sends you to the app, the next onboarding step, or sign-in |
 | `/login`, `/signup` | 3a | Password or GitHub; split layout |
 | `/onboarding/organization` | 3b | Name + live slug availability + GitHub connect |
 | `/onboarding/invite` | — | Skippable bulk invite |
@@ -167,9 +163,8 @@ point Vercel Cron or any scheduler at it.
 ```
 Dockerfile               deps → builder → tools (migrations) / runner (standalone)
 docker-compose.yml       db + one-shot migrate + web on 3321
-prisma/schema.prisma     24 models — org, projects, epics, sprints, issues,
+prisma/schema.prisma     28 models — org, projects, epics, sprints, issues,
                          subtasks, git branches/PRs, activity, inbox, rules, tokens
-prisma/seed.ts           Acme Engineering, with enough history for Insights
 src/lib/                 db, auth (scrypt + sessions), issues, automation, insights,
                          digest, github, mail, validators (zod)
 src/app/api/             route handlers — session or bearer-token auth
@@ -191,6 +186,5 @@ whether an address exists.
 | `npm run dev` | host dev server on 3321 |
 | `npm run build` | prisma generate + next build |
 | `npm run db:push` | sync schema |
-| `npm run db:seed` | reset and reseed the demo org |
 | `npm run db:studio` | Prisma Studio |
 | `npm run emails` | render every email template to `.preview/emails/` |

@@ -17,7 +17,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { api } from "@/lib/client";
 import { useToast } from "@/components/Toast";
 import { useShell } from "@/components/shell/context";
-import { Avatar, Bar, Check, Popover } from "@/components/ui";
+import { Avatar, Bar, Check, Empty, Popover } from "@/components/ui";
 import { NewIssueModal } from "@/components/NewIssueButton";
 import { BulkBar, type BulkPatch } from "@/components/board/BulkBar";
 import { IssueStatus, SprintStatus } from "@/lib/types";
@@ -316,6 +316,7 @@ export function Backlog({
             onOpen={(key) => router.push(`/issues/${key}`)}
             onNewInGroup={(epicId) => setModalSeed({ epicId })}
             groupBy={groupBy}
+            totalIssues={issues.length}
             bulk={
               <BulkBar
                 count={selected.length}
@@ -387,8 +388,10 @@ function BacklogList({
   onNewInGroup,
   groupBy,
   bulk,
+  totalIssues,
 }: {
   groups: { id: string; label: string; issues: BoardIssue[] }[];
+  totalIssues: number;
   collapsed: string[];
   onToggleGroup: (id: string) => void;
   selected: string[];
@@ -465,7 +468,14 @@ function BacklogList({
         })}
 
         {groups.every((g) => g.issues.length === 0) && (
-          <div className="empty">Backlog is empty — everything is planned.</div>
+          <Empty
+            title={totalIssues === 0 ? "No issues yet" : "Backlog is empty"}
+            hint={
+              totalIssues === 0
+                ? "Create one from the board or with New issue — a title is all it needs."
+                : "Everything is planned into a sprint."
+            }
+          />
         )}
       </div>
 

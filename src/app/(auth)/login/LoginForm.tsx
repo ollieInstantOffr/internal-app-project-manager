@@ -63,7 +63,7 @@ export default function LoginForm({ oauthError }: { oauthError?: string }) {
           type="email"
           autoComplete="email"
           required
-          placeholder="sam@acme.dev"
+          placeholder="you@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
