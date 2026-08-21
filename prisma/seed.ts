@@ -968,9 +968,14 @@ async function main() {
   console.log(`  Sign in: sam@acme.dev / ${PASSWORD}  (also mira@, dev@, ana@)`);
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(() => db.$disconnect());
+export { main as seed };
+
+// Only self-run when invoked as a script; `seed-if-empty` imports it instead.
+if (process.argv[1] && /seed\.ts$/.test(process.argv[1])) {
+  main()
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    })
+    .finally(() => db.$disconnect());
+}

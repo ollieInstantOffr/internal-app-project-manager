@@ -8,6 +8,7 @@ services:
       POSTGRES_PASSWORD: arc
       POSTGRES_DB: arc
     ports:
+      # Host access for psql/Studio; the app talks to db:5432 over the network.
       - "5434:5432"
     volumes:
       - arc-pgdata:/var/lib/postgresql/data
@@ -16,6 +17,44 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # One-shot: syncs the schema, then seeds only if the database is empty.
+  migrate:
+    build:
+      context: .
+      target: tools
+    container_name: arc-migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://arc:arc@db:5432/arc?schema=public
+    command: sh -c "npx prisma db push && npx tsx scripts/seed-if-empty.ts"
+
+  web:
+    build:
+      context: .
+      target: runner
+    container_name: arc-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3321:3000"
+    environment:
+      DATABASE_URL: postgresql://arc:arc@db:5432/arc?schema=public
+      APP_URL: ${APP_URL:-http://localhost:3321}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-secret-change-me-in-production}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Arc <onboarding@resend.dev>}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      CRON_SECRET: ${CRON_SECRET:-}
 
 volumes:
   arc-pgdata:

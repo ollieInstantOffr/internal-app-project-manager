@@ -12,36 +12,63 @@ APIs behind them, the schema, and the automation engine that makes the tagline t
 
 ## Running it
 
-```bash
-docker compose up -d
-```
+Everything runs in Docker — app and database both.
 
 ```bash
-npm install && npx prisma db push && npm run db:seed && npm run dev
+docker compose up -d --build
 ```
 
-Then open http://localhost:3000 and sign in as **sam@acme.dev / arcdemo123**
+Open **http://localhost:3321** and sign in as **sam@acme.dev / arcdemo123**
 (`mira@`, `dev@` and `ana@` share the password; Sam is the owner, Mira an admin,
 Dev and Ana members).
 
-The seed builds Acme Engineering: 3 projects, 97 issues, 7 sprints of history,
-5 epics, an inbox, and enough status-change trail for Insights to compute real
-velocity, cycle time and flow.
+Three services come up: `db` (Postgres 16), `migrate` (a one-shot that syncs the
+schema and seeds the demo org **only when the database is empty**), and `web`
+(the Next.js standalone server). Cold start from an empty volume to a healthy,
+seeded app takes about 15 seconds. Restarting never re-seeds — your data is left
+alone.
+
+| Command | Does |
+| --- | --- |
+| `npm run docker:up` | build and start everything |
+| `npm run docker:logs` | tail the app |
+| `npm run docker:down` | stop, keep the data |
+| `npm run docker:reset` | wipe the volume and start fresh, re-seeded |
+
+`GET /api/health` round-trips the database and backs the container healthcheck.
+
+### Running the app outside Docker
+
+Keep the database container and run the server on the host — same port, so
+`APP_URL` and the links in emails stay correct. Stop `arc-web` first, or the
+port is taken.
+
+```bash
+docker compose up -d db && npm install && npm run db:push && npm run db:seed && npm run dev
+```
+
+Postgres is published on **5434** for `psql` and `npm run db:studio`; inside the
+compose network the app reaches it at `db:5432`.
 
 ### Configuration
 
-Everything lives in `.env` (see `.env.example`). Only `DATABASE_URL` is required —
-the app degrades gracefully without the rest.
+Everything lives in `.env` (see `.env.example`), which `docker compose` reads
+automatically. Only `DATABASE_URL` is required for host-side tooling — the
+containers get theirs from compose. The app degrades gracefully without the rest.
 
 | Variable | Effect when unset |
 | --- | --- |
-| `DATABASE_URL` | required |
+| `APP_URL` | `http://localhost:3321` |
 | `RESEND_API_KEY` | mail is logged instead of sent, nothing fails |
 | `EMAIL_FROM` | falls back to `onboarding@resend.dev` |
 | `GITHUB_CLIENT_ID` / `_SECRET` | GitHub sign-in and repo import are hidden |
 | `GITHUB_WEBHOOK_SECRET` | the webhook returns 503; the in-app simulator still runs every rule |
 | `CRON_SECRET` | the daily digest endpoint is disabled |
-| `APP_URL` | links in emails default to `http://localhost:3000` |
+| `SESSION_SECRET` | a development default is used — set this in production |
+
+The seed builds Acme Engineering: 3 projects, 97 issues, 7 sprints of history,
+5 epics, an inbox, and enough status-change trail for Insights to compute real
+velocity, cycle time and flow.
 
 ---
 
@@ -121,7 +148,7 @@ mention, assignment, blocking nudge, CI failure, daily digest. All respect
 per-user preferences in **Settings → Notifications**.
 
 ```bash
-npx tsx scripts/preview-emails.ts
+npm run emails
 ```
 
 writes every template to `.preview/emails/` so you can look at them without
@@ -136,6 +163,8 @@ point Vercel Cron or any scheduler at it.
 ## Layout
 
 ```
+Dockerfile               deps → builder → tools (migrations) / runner (standalone)
+docker-compose.yml       db + one-shot migrate + web on 3321
 prisma/schema.prisma     24 models — org, projects, epics, sprints, issues,
                          subtasks, git branches/PRs, activity, inbox, rules, tokens
 prisma/seed.ts           Acme Engineering, with enough history for Insights
@@ -156,8 +185,10 @@ whether an address exists.
 
 | Command | Does |
 | --- | --- |
-| `npm run dev` | dev server |
+| `npm run docker:up` / `:down` / `:reset` / `:logs` | the whole stack |
+| `npm run dev` | host dev server on 3321 |
 | `npm run build` | prisma generate + next build |
 | `npm run db:push` | sync schema |
 | `npm run db:seed` | reset and reseed the demo org |
 | `npm run db:studio` | Prisma Studio |
+| `npm run emails` | render every email template to `.preview/emails/` |
