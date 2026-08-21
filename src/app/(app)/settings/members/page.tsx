@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { IssueStatus } from "@/lib/types";
 import { Members } from "@/components/settings/Members";
 import { appUrl } from "@/lib/app-url";
+import { focusingMembers } from "@/lib/focus";
 
 export const metadata = { title: "Members · Arc" };
 export const dynamic = "force-dynamic";
@@ -12,10 +13,10 @@ export default async function MembersPage({
 }: {
   searchParams: Promise<{ invite?: string }>;
 }) {
-  const { org } = await requireOrg();
+  const { org, user } = await requireOrg();
   const { invite } = await searchParams;
 
-  const [memberships, invites, teams, counts] = await Promise.all([
+  const [memberships, invites, teams, counts, focusing] = await Promise.all([
     db.membership.findMany({
       where: { orgId: org.id },
       orderBy: { createdAt: "asc" },
@@ -53,6 +54,7 @@ export default async function MembersPage({
       },
       _count: { _all: true },
     }),
+    focusingMembers(org.id, user.id),
   ]);
 
   const openBy = new Map(counts.map((c) => [c.assigneeId!, c._count._all]));
@@ -73,6 +75,7 @@ export default async function MembersPage({
           .filter((t) => t.team.orgId === org.id)
           .map((t) => ({ id: t.team.id, name: t.team.name })),
         openIssues: openBy.get(m.user.id) ?? 0,
+        focusing: focusing.has(m.user.id),
       }))}
       invites={invites.map((i) => ({
         id: i.id,

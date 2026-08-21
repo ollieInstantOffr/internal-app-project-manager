@@ -39,7 +39,7 @@ export default async function Page() {
   const { org, user } = await requireOrg();
   const now = new Date();
 
-  const [mine, delegated, done, lists, focus, activeSession, projects] = await Promise.all([
+  const [mine, delegated, done, lists, focus, projects] = await Promise.all([
     db.task.findMany({
       where: { ownerId: user.id, orgId: org.id, status: "OPEN" },
       include: TASK_INCLUDE,
@@ -63,10 +63,6 @@ export default async function Page() {
       select: { id: true, name: true, color: true },
     }),
     focusThisWeek(user.id, now),
-    db.focusSession.findFirst({
-      where: { userId: user.id, endedAt: null },
-      orderBy: { startedAt: "desc" },
-    }),
     db.project.findMany({
       where: { orgId: org.id, archived: false },
       orderBy: { createdAt: "asc" },
@@ -80,14 +76,6 @@ export default async function Page() {
     done: done.map(shape),
     lists,
     focus,
-    activeSession: activeSession
-      ? {
-          id: activeSession.id,
-          taskId: activeSession.taskId,
-          plannedMinutes: activeSession.plannedMinutes,
-          startedAt: activeSession.startedAt.toISOString(),
-        }
-      : null,
     projects,
     now: now.toISOString(),
   };

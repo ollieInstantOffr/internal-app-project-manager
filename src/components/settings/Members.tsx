@@ -20,6 +20,8 @@ export type MemberRow = {
   role: Role;
   teams: { id: string; name: string }[];
   openIssues: number;
+  /** Only ever true for people who turned the badge on themselves. */
+  focusing: boolean;
 };
 
 export type InviteRow = {
@@ -229,6 +231,22 @@ export function Members({
                     {member.name}
                     {member.id === user.id && (
                       <span style={{ fontWeight: 400, color: "var(--muted-2)" }}> (you)</span>
+                    )}
+                    {member.focusing && (
+                      <span
+                        className="pill"
+                        title="Heads-down right now"
+                        style={{
+                          marginLeft: 7,
+                          fontSize: 9.5,
+                          padding: "1px 7px",
+                          background: "var(--accent-wash-2)",
+                          color: "var(--accent-text)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Focusing
+                      </span>
                     )}
                   </div>
                   <div className="truncate" style={{ font: "400 10px var(--sans)", color: "var(--muted-2)" }}>

@@ -1,22 +1,30 @@
 import { db } from "@/lib/db";
 import { handler, json, parseBody, requireApiContext } from "@/lib/api";
 import { focusStartSchema } from "@/lib/validators";
+import { currentSession, prefsFor, serializeSession, startSession, todayStats } from "@/lib/focus";
 import { HttpError } from "@/lib/auth";
 
 export const GET = handler(async (req: Request) => {
   const ctx = await requireApiContext(req);
-  const active = await db.focusSession.findFirst({
-    where: { userId: ctx.userId, endedAt: null },
-    orderBy: { startedAt: "desc" },
-    include: { task: { select: { id: true, title: true } } },
-  });
-  return json({ session: active });
+  const [session, today, prefs] = await Promise.all([
+    currentSession(ctx.userId),
+    todayStats(ctx.userId),
+    prefsFor(ctx.userId),
+  ]);
+  return json({ session: serializeSession(session), today, prefs });
 });
 
 export const POST = handler(async (req: Request) => {
   const ctx = await requireApiContext(req);
   const body = await parseBody(req, focusStartSchema);
 
+  if (body.issueId) {
+    const issue = await db.issue.findFirst({
+      where: { id: body.issueId, project: { orgId: ctx.orgId } },
+      select: { id: true },
+    });
+    if (!issue) throw new HttpError(404, "Issue not found");
+  }
   if (body.taskId) {
     const task = await db.task.findFirst({
       where: { id: body.taskId, ownerId: ctx.userId },
@@ -25,25 +33,16 @@ export const POST = handler(async (req: Request) => {
     if (!task) throw new HttpError(404, "Task not found");
   }
 
-  // Only one clock runs at a time — starting a new one closes the last.
-  const running = await db.focusSession.findFirst({
-    where: { userId: ctx.userId, endedAt: null },
-  });
-  if (running) {
-    const elapsed = Math.round((Date.now() - running.startedAt.getTime()) / 60000);
-    await db.focusSession.update({
-      where: { id: running.id },
-      data: { endedAt: new Date(), minutes: Math.min(elapsed, running.plannedMinutes) },
-    });
-  }
-
-  const session = await db.focusSession.create({
-    data: {
-      userId: ctx.userId,
-      taskId: body.taskId ?? null,
-      plannedMinutes: body.plannedMinutes,
-    },
+  // Starting a session never changes issue status — timing and workflow stay apart.
+  const session = await startSession({
+    userId: ctx.userId,
+    plannedMinutes: body.plannedMinutes,
+    issueId: body.issueId,
+    taskId: body.taskId,
+    kind: body.kind,
+    replace: body.replace,
   });
 
-  return json({ ok: true, session }, { status: 201 });
+  const today = await todayStats(ctx.userId);
+  return json({ ok: true, session: serializeSession(session), today }, { status: 201 });
 });

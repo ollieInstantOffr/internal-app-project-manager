@@ -5,6 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { Rail } from "./Rail";
 import { CommandPalette } from "./CommandPalette";
 import { ShellProvider, type ShellData } from "./context";
+import { FocusProvider, type FocusPrefs, type FocusSession } from "@/components/focus/context";
+import { FocusChrome } from "@/components/focus/FocusChrome";
+import { FocusPill } from "@/components/focus/FocusPill";
+
+export type FocusBoot = {
+  session: FocusSession | null;
+  prefs: FocusPrefs;
+  today: { minutes: number; count: number };
+};
 
 function isTypingTarget(el: EventTarget | null) {
   const node = el as HTMLElement | null;
@@ -13,7 +22,15 @@ function isTypingTarget(el: EventTarget | null) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable;
 }
 
-export function AppShell({ data, children }: { data: ShellData; children: React.ReactNode }) {
+export function AppShell({
+  data,
+  focus,
+  children,
+}: {
+  data: ShellData;
+  focus: FocusBoot;
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -92,6 +109,7 @@ export function AppShell({ data, children }: { data: ShellData; children: React.
 
   return (
     <ShellProvider value={data}>
+      <FocusProvider initial={focus}>
       <div className="shell" data-nav-open={navOpen}>
         <header className="topbar">
           <button
@@ -108,6 +126,7 @@ export function AppShell({ data, children }: { data: ShellData; children: React.
           <span className="grow truncate" style={{ font: "600 13px var(--display)" }}>
             {data.org.name}
           </span>
+          <FocusPill variant="inline" />
           <button className="topbar-btn" aria-label="Search" onClick={openPalette}>
             <span style={{ fontSize: 15 }}>⌕</span>
           </button>
@@ -120,7 +139,9 @@ export function AppShell({ data, children }: { data: ShellData; children: React.
         {children}
       </div>
 
+      <FocusChrome />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      </FocusProvider>
     </ShellProvider>
   );
 }

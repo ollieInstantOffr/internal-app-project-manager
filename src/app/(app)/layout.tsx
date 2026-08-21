@@ -1,14 +1,24 @@
 import { requireOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { AppShell } from "@/components/shell/AppShell";
+import { AppShell, type FocusBoot } from "@/components/shell/AppShell";
+import { currentSession, prefsFor, serializeSession, todayStats } from "@/lib/focus";
 import type { ShellData } from "@/components/shell/context";
 import { redirect } from "next/navigation";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, org, role } = await requireOrg();
 
-  const [projects, memberships, inboxCount, projectCount, taskCount, taskLists] =
-    await Promise.all([
+  const [
+    projects,
+    memberships,
+    inboxCount,
+    projectCount,
+    taskCount,
+    taskLists,
+    focusSession,
+    focusToday,
+    focusPrefs,
+  ] = await Promise.all([
       db.project.findMany({
         where: { orgId: org.id, archived: false },
         orderBy: { createdAt: "asc" },
@@ -33,9 +43,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           _count: { select: { tasks: { where: { status: "OPEN" } } } },
         },
       }),
+      // The timer lives in the chrome, so the shell boots it, not the page.
+      currentSession(user.id),
+      todayStats(user.id),
+      prefsFor(user.id),
     ]);
 
   if (projectCount === 0) redirect("/onboarding/project");
+
+  const focus: FocusBoot = {
+    session: serializeSession(focusSession),
+    today: focusToday,
+    prefs: {
+      lastLengthMinutes: focusPrefs.lastLengthMinutes,
+      pauseNotifications: focusPrefs.pauseNotifications,
+      suggestBreak: focusPrefs.suggestBreak,
+      shareBadge: focusPrefs.shareBadge,
+    },
+  };
 
   const data: ShellData = {
     org: { id: org.id, name: org.name, slug: org.slug },
@@ -59,5 +84,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     })),
   };
 
-  return <AppShell data={data}>{children}</AppShell>;
+  return (
+    <AppShell data={data} focus={focus}>
+      {children}
+    </AppShell>
+  );
 }

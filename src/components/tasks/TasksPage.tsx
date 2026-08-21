@@ -11,6 +11,7 @@ import { Composer } from "./Composer";
 import { TaskRow, type RowActions } from "./TaskRow";
 import { ConvertNote, DelegatedPanel, FocusChart, ReceivedCard } from "./Aside";
 import { SnoozeMenu } from "./menus";
+import { clock, useFocus } from "@/components/focus/context";
 import type { TaskItem, TasksData } from "./types";
 
 const VIEWS = [
@@ -43,11 +44,12 @@ export function TasksPage({ data }: { data: TasksData }) {
   const params = useSearchParams();
   const { toast, error } = useToast();
 
+  // The timer lives in the app chrome — the Next up button just drives it.
+  const focus = useFocus();
   const now = useMemo(() => new Date(data.now), [data.now]);
   const [view, setView] = useState<View>("mine");
   const [tasks, setTasks] = useState(data.mine);
   const [delegated, setDelegated] = useState(data.delegated);
-  const [session, setSession] = useState(data.activeSession);
   const [composeOpen, setComposeOpen] = useState(0);
   const listId = params.get("list");
   const wantsNewList = params.get("new-list") === "1";
@@ -56,8 +58,7 @@ export function TasksPage({ data }: { data: TasksData }) {
   useEffect(() => {
     setTasks(data.mine);
     setDelegated(data.delegated);
-    setSession(data.activeSession);
-  }, [data.mine, data.delegated, data.activeSession]);
+  }, [data.mine, data.delegated]);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
@@ -206,17 +207,24 @@ export function TasksPage({ data }: { data: TasksData }) {
     );
   }
 
-  function startFocus(task: TaskItem | null) {
-    if (session) {
-      const id = session.id;
-      setSession(null);
-      call(() => api.post(`/api/focus/${id}`, { minutes: elapsedMinutes(session.startedAt) }), "Focus logged");
+  async function startFocus(task: TaskItem | null) {
+    if (focus.session) {
+      await focus.act("end");
       return;
     }
-    call(
-      () => api.post("/api/focus", { taskId: task?.id ?? null, plannedMinutes: 45 }),
-      "Focus started — 45 minutes",
-    );
+    await focus.start({
+      plannedMinutes: focus.prefs.lastLengthMinutes,
+      target: task
+        ? {
+            kind: "task",
+            id: task.id,
+            label: task.title,
+            sub: "Task",
+            color: task.list ? `var(--list-${task.list.color})` : "var(--accent)",
+          }
+        : null,
+      replace: true,
+    });
   }
 
   /* ── grouping ──────────────────────────────────────────── */
@@ -312,11 +320,13 @@ export function TasksPage({ data }: { data: TasksData }) {
                 <div className="next-up-actions">
                   <button
                     className="btn-focus"
-                    data-running={!!session}
+                    data-running={!!focus.session}
                     onClick={() => startFocus(nextUp)}
                   >
                     <span className="dot" aria-hidden />
-                    {session ? "Stop focus" : "Start 45m focus"}
+                    {focus.session
+                      ? `Stop focus · ${clock(focus.remaining)}`
+                      : `Start ${focus.prefs.lastLengthMinutes}m focus`}
                   </button>
                   <Popover
                     align="right"
@@ -462,10 +472,6 @@ export function TasksPage({ data }: { data: TasksData }) {
       {wantsNewList && <NewListDialog onDone={() => router.replace("/tasks")} />}
     </main>
   );
-}
-
-function elapsedMinutes(startedAt: string) {
-  return Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 60000));
 }
 
 function NewListDialog({ onDone }: { onDone: () => void }) {

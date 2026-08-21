@@ -33,6 +33,7 @@ export function IssueDetail({
   labels,
   neighbours,
   projectName,
+  focusMinutes,
 }: {
   issue: BoardIssue;
   subtasks: Subtask[];
@@ -43,6 +44,7 @@ export function IssueDetail({
   labels: BoardLabel[];
   neighbours: { prev: string | null; next: string | null };
   projectName: string;
+  focusMinutes: number;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -359,6 +361,7 @@ export function IssueDetail({
           issue={local}
           epics={epics}
           sprints={sprints}
+          focusMinutes={focusMinutes}
           onPatch={patch}
           onAddBlock={async (key) => {
             try {

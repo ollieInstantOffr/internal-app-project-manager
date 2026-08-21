@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Avatar, Popover } from "@/components/ui";
 import { useShell } from "@/components/shell/context";
+import { humanMinutes } from "@/components/focus/context";
 import { useToast } from "@/components/Toast";
 import { IssueStatus, PrState, Priority } from "@/lib/types";
 import { PRIORITY_LABEL, PRIORITY_ORDER, accent } from "@/lib/constants";
@@ -16,10 +17,13 @@ export function IssueSidebar({
   onPatch,
   onAddBlock,
   onRemoveBlock,
+  focusMinutes,
 }: {
   issue: BoardIssue;
   epics: BoardEpic[];
   sprints: BoardSprint[];
+  /** Minutes this person has logged here. Personal — nobody else sees it. */
+  focusMinutes: number;
   onPatch: (patch: Record<string, unknown>) => void;
   onAddBlock: (key: string) => void;
   onRemoveBlock: (key: string) => void;
@@ -215,6 +219,18 @@ export function IssueSidebar({
             )}
           </Popover>
         </Field>
+
+        {focusMinutes > 0 && (
+          <Field label="Your focus">
+            <span
+              className="mono"
+              style={{ fontSize: 11.5, color: "var(--accent)" }}
+              title="Only you can see this"
+            >
+              {humanMinutes(focusMinutes)}
+            </span>
+          </Field>
+        )}
 
         <Field label="Priority">
           <Popover

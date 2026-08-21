@@ -36,7 +36,6 @@ export type TasksData = {
   done: TaskItem[];
   lists: TaskListRef[];
   focus: { days: FocusDay[]; totalMinutes: number };
-  activeSession: { id: string; taskId: string | null; plannedMinutes: number; startedAt: string } | null;
   projects: { id: string; key: string; name: string }[];
   now: string;
 };

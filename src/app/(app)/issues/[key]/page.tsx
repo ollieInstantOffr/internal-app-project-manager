@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { ISSUE_INCLUDE } from "@/lib/issues";
 import { serializeIssue } from "@/lib/serialize";
 import { IssueDetail } from "@/components/issue/IssueDetail";
+import { FocusSuggest } from "@/components/focus/FocusSuggest";
+import { loggedOnIssue } from "@/lib/focus";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
 }
 
 export default async function IssuePage({ params }: { params: Promise<{ key: string }> }) {
-  const { org } = await requireOrg();
+  const { org, user } = await requireOrg();
   const { key } = await params;
 
   const issue = await db.issue.findFirst({
@@ -45,9 +47,22 @@ export default async function IssuePage({ params }: { params: Promise<{ key: str
   ]);
 
   const index = siblings.findIndex((s) => s.key === issue.key);
+  const focusMinutes = await loggedOnIssue(user.id, issue.id);
 
   return (
-    <IssueDetail
+    <>
+      {/* One click on the idle pill starts a session on this issue. */}
+      <FocusSuggest
+        target={{
+          kind: "issue",
+          id: issue.id,
+          label: issue.title,
+          sub: issue.key,
+          color: issue.project.color,
+        }}
+      />
+      <IssueDetail
+        focusMinutes={focusMinutes}
       issue={serializeIssue(issue)}
       projectName={issue.project.name}
       subtasks={issue.subtasks.map((s) => ({
@@ -93,5 +108,6 @@ export default async function IssuePage({ params }: { params: Promise<{ key: str
         next: index !== -1 && index < siblings.length - 1 ? siblings[index + 1].key : null,
       }}
     />
+    </>
   );
 }

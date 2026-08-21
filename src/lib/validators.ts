@@ -242,9 +242,22 @@ export const convertTaskSchema = z.object({
 
 export const focusStartSchema = z.object({
   taskId: z.string().optional().nullable(),
+  issueId: z.string().optional().nullable(),
   plannedMinutes: z.number().int().min(5).max(240).default(45),
+  kind: z.enum(["FOCUS", "BREAK"]).default("FOCUS"),
+  /** The user has agreed to end whatever is already running. */
+  replace: z.boolean().optional(),
 });
 
-export const focusEndSchema = z.object({
-  minutes: z.number().int().min(0).max(600),
+export const focusActionSchema = z.object({
+  action: z.enum(["pause", "resume", "end", "log", "skip", "extend"]),
+  /** extend only — minutes to add or remove, in 5-minute steps. */
+  step: z.number().int().min(-60).max(60).optional(),
+});
+
+export const focusPrefsSchema = z.object({
+  pauseNotifications: z.boolean().optional(),
+  suggestBreak: z.boolean().optional(),
+  shareBadge: z.boolean().optional(),
+  lastLengthMinutes: z.number().int().min(5).max(240).optional(),
 });

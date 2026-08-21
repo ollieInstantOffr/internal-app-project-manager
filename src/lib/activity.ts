@@ -78,6 +78,16 @@ export async function notify(opts: {
   });
 }
 
+/**
+ * "Pause notifications while focusing" — the in-app notification is still
+ * created (losing it would be worse), but nothing is pushed to their inbox
+ * while they're heads-down.
+ */
+async function quiet(userId: string) {
+  const { isMuted } = await import("./focus");
+  return isMuted(userId);
+}
+
 async function prefsFor(userId: string) {
   return (
     (await db.notificationPref.findUnique({ where: { userId } })) ?? {
@@ -139,6 +149,7 @@ export async function notifyMention(opts: {
     issueTitle: opts.issueTitle,
     body: opts.body,
   });
+  if (await quiet(opts.user.id)) return;
   await sendMail({ to: opts.user.email, ...tpl });
 }
 
@@ -170,6 +181,7 @@ export async function notifyAssigned(opts: {
     issueTitle: opts.issueTitle,
     meta: opts.meta,
   });
+  if (await quiet(opts.user.id)) return;
   await sendMail({ to: opts.user.email, ...tpl });
 }
 
@@ -196,6 +208,7 @@ export async function notifyBlocking(opts: {
     issueTitle: opts.issueTitle,
     blockedKey: opts.blockedKey,
   });
+  if (await quiet(opts.user.id)) return;
   await sendMail({ to: opts.user.email, ...tpl });
 }
 
@@ -218,6 +231,7 @@ export async function notifyCiFailed(opts: {
   const prefs = await prefsFor(opts.user.id);
   if (!prefs.emailCiFailures) return;
   const tpl = ciFailedTemplate({ issueKey: opts.issueKey, branch: opts.branch, detail: opts.detail });
+  if (await quiet(opts.user.id)) return;
   await sendMail({ to: opts.user.email, ...tpl });
 }
 

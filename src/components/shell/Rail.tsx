@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useShell } from "./context";
 import { Avatar, ProjectDot } from "@/components/ui";
 import { shortName } from "@/lib/format";
+import { FocusToday } from "@/components/focus/FocusToday";
 
 const PLANNING_TABS = [
   { slug: "board", label: "Board" },
@@ -280,6 +281,8 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
           ))}
         </div>
       )}
+
+      <FocusToday />
 
       <div className="rail-foot">
         <Avatar name={user.name} hue={user.avatarHue} size={26} />

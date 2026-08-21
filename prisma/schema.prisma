@@ -42,6 +42,7 @@ model User {
   tasks          Task[]             @relation("taskOwner")
   delegatedTasks Task[]             @relation("taskDelegator")
   focusSessions  FocusSession[]
+  focusPref      FocusPref?
   prefs          NotificationPref?
   magicLinks     MagicLink[]
 
@@ -307,6 +308,7 @@ model Issue {
   apiFailures   ApiRunResult[]
   fileRefs      IssueFileRef[]
   taskRefs      Task[]         @relation("taskContext")
+  focusSessions FocusSession[] @relation("focusContext")
 
   @@unique([projectId, number])
   @@index([key])
@@ -872,16 +874,49 @@ model TaskSubtask {
 }
 
 /// Time spent heads-down. Rolls up into "Focus this week" and nothing else.
+enum FocusKind {
+  FOCUS
+  BREAK
+}
+
 model FocusSession {
   id        String    @id @default(cuid())
+  kind      FocusKind @default(FOCUS)
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A session can attach to an issue or a task — or to nothing at all.
   taskId    String?
   task      Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  issueId   String?
+  issue     Issue?    @relation("focusContext", fields: [issueId], references: [id], onDelete: SetNull)
+
   plannedMinutes Int  @default(45)
   minutes   Int       @default(0)
   startedAt DateTime  @default(now())
   endedAt   DateTime?
 
+  // Paused time is banked here so the remaining count survives a reload.
+  pausedAt      DateTime?
+  pausedSeconds Int      @default(0)
+
+  /// Set when the user chose to log the session against its issue or task.
+  loggedAt  DateTime?
+
   @@index([userId, startedAt])
+  @@index([issueId])
+}
+
+/// Per-user timer settings — remembered between sessions.
+model FocusPref {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lastLengthMinutes  Int     @default(45)
+  pauseNotifications Boolean @default(true)
+  suggestBreak       Boolean @default(true)
+  /// Off by default: focus time is personal unless you say otherwise.
+  shareBadge         Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
 }
