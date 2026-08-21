@@ -6,6 +6,24 @@ import { useShell } from "./context";
 import { Avatar, ProjectDot } from "@/components/ui";
 import { shortName } from "@/lib/format";
 
+const PLANNING_TABS = [
+  { slug: "board", label: "Board" },
+  { slug: "backlog", label: "Backlog" },
+  { slug: "epics", label: "Epics" },
+  { slug: "insights", label: "Insights" },
+];
+
+const TOOL_TABS = [
+  { slug: "code", label: "Code" },
+  { slug: "api", label: "API console" },
+];
+
+/** The console and browser have nested routes, so a suffix match isn't enough. */
+function isActiveTab(pathname: string, projectKey: string, slug: string) {
+  const base = `/projects/${projectKey}/${slug}`;
+  return pathname === base || pathname.startsWith(`${base}/`) || pathname.startsWith(`${base}?`);
+}
+
 const SETTINGS_NAV = [
   { href: "/settings/general", label: "General" },
   { href: "/settings/members", label: "Members" },
@@ -84,33 +102,43 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
           </div>
 
           {activeProject ? (
-            <div className="rail-group">
-              <div className="eyebrow rail-heading truncate">{activeProject.name}</div>
-              {[
-                { slug: "board", label: "Board" },
-                { slug: "backlog", label: "Backlog" },
-                { slug: "epics", label: "Epics" },
-                { slug: "code", label: "Code" },
-                { slug: "api", label: "API console" },
-                { slug: "insights", label: "Insights" },
-              ].map((tab) => (
-                <Link
-                  key={tab.slug}
-                  href={`/projects/${activeProject.key}/${tab.slug}`}
-                  className="rail-item"
-                  data-active={
-                    tab.slug === "api"
-                      ? pathname.includes(`/${activeProject.key}/api`)
-                      : pathname.endsWith(`/${tab.slug}`)
-                  }
-                >
-                  {tab.label}
+            <>
+              <div className="rail-group">
+                <div className="eyebrow rail-heading truncate">{activeProject.name}</div>
+                {PLANNING_TABS.map((tab) => (
+                  <Link
+                    key={tab.slug}
+                    href={`/projects/${activeProject.key}/${tab.slug}`}
+                    className="rail-item"
+                    data-active={isActiveTab(pathname, activeProject.key, tab.slug)}
+                  >
+                    {tab.label}
+                  </Link>
+                ))}
+              </div>
+
+              {/* Tools read the repository rather than the plan, so they sit apart. */}
+              <div className="rail-group">
+                <div className="eyebrow rail-heading">Tools</div>
+                {TOOL_TABS.map((tab) => (
+                  <Link
+                    key={tab.slug}
+                    href={`/projects/${activeProject.key}/${tab.slug}`}
+                    className="rail-item"
+                    data-active={isActiveTab(pathname, activeProject.key, tab.slug)}
+                  >
+                    <span className="rail-glyph" />
+                    {tab.label}
+                  </Link>
+                ))}
+              </div>
+
+              <div className="rail-group">
+                <Link href="/home" className="rail-item" style={{ color: "var(--muted-2)", fontSize: 12 }}>
+                  ← All projects
                 </Link>
-              ))}
-              <Link href="/home" className="rail-item" style={{ color: "var(--muted-2)", fontSize: 12 }}>
-                ← All projects
-              </Link>
-            </div>
+              </div>
+            </>
           ) : (
             <div className="rail-group">
               <div className="eyebrow rail-heading">Projects</div>
