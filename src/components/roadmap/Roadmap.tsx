@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/client";
+import { api, ApiError } from "@/lib/client";
 import { useToast } from "@/components/Toast";
 import { Modal, Popover } from "@/components/ui";
 import { useShell } from "@/components/shell/context";
+import { ShareSheet, type ShareEpic, type SharePage } from "./ShareSheet";
 import { accent } from "@/lib/constants";
 import { EpicStatus, MilestoneStatus } from "@/lib/types";
 
@@ -47,10 +48,41 @@ export function Roadmap({
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { projects } = useShell();
+  const { projects, org } = useShell();
   const [zoom, setZoom] = useState<Zoom>("quarter");
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [creating, setCreating] = useState<null | "epic" | "milestone">(null);
+  const [share, setShare] = useState<{
+    projectKey: string;
+    projectName: string;
+    page: SharePage;
+    epics: ShareEpic[];
+  } | null>(null);
+  const [loadingShare, setLoadingShare] = useState(false);
+
+  /** The public page is per-project, so sharing always names one. */
+  const openShare = useCallback(
+    async (projectKey: string) => {
+      const project = projects.find((p) => p.key === projectKey);
+      setLoadingShare(true);
+      try {
+        const data = await api.get<{ page: SharePage; epics: ShareEpic[] }>(
+          `/api/projects/${projectKey}/roadmap`,
+        );
+        setShare({
+          projectKey,
+          projectName: project?.name ?? projectKey,
+          page: data.page,
+          epics: data.epics,
+        });
+      } catch (err) {
+        toast(err instanceof ApiError ? err.message : "Could not open the share sheet");
+      } finally {
+        setLoadingShare(false);
+      }
+    },
+    [projects, toast],
+  );
 
   const visible = projectFilter ? epics.filter((e) => e.projectKey === projectFilter) : epics;
 
@@ -129,6 +161,44 @@ export function Roadmap({
         </div>
 
         <div className="grow" />
+
+        {projectFilter ? (
+          <button
+            className="btn btn-ghost"
+            onClick={() => openShare(projectFilter)}
+            disabled={loadingShare}
+          >
+            Share
+          </button>
+        ) : (
+          <Popover
+            align="right"
+            width={220}
+            trigger={({ toggle }) => (
+              <button className="btn btn-ghost" onClick={toggle} disabled={loadingShare}>
+                Share
+              </button>
+            )}
+          >
+            {(close) => (
+              <>
+                <div className="eyebrow menu-label">Publish which project?</div>
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    className="menu-item"
+                    onClick={() => {
+                      openShare(p.key);
+                      close();
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </>
+            )}
+          </Popover>
+        )}
 
         <Popover
           align="right"
@@ -400,13 +470,25 @@ export function Roadmap({
 
       {creating === "epic" && <NewEpicModal onClose={() => setCreating(null)} />}
       {creating === "milestone" && <NewMilestoneModal onClose={() => setCreating(null)} />}
+
+      {share && (
+        <ShareSheet
+          projectKey={share.projectKey}
+          projectName={share.projectName}
+          publicPath={`${org.slug}/${share.projectKey.toLowerCase()}`}
+          origin={typeof window === "undefined" ? "" : window.location.origin}
+          page={share.page}
+          epics={share.epics}
+          onClose={() => setShare(null)}
+        />
+      )}
     </main>
   );
 }
 
 function NewEpicModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const { projects } = useShell();
+  const { projects, org } = useShell();
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");

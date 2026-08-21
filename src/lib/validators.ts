@@ -261,3 +261,28 @@ export const focusPrefsSchema = z.object({
   shareBadge: z.boolean().optional(),
   lastLengthMinutes: z.number().int().min(5).max(240).optional(),
 });
+
+/* ── Public roadmap ──────────────────────────────────────────────────────── */
+
+export const roadmapSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  headline: z.string().trim().min(1).max(120).optional(),
+  intro: z.string().trim().max(600).optional().nullable(),
+  detail: z.enum(["QUARTERS", "MONTHS", "DATES"]).optional(),
+  showShipped: z.boolean().optional(),
+  showSubscribe: z.boolean().optional(),
+  showProgress: z.boolean().optional(),
+  showIssues: z.boolean().optional(),
+  showAssignees: z.boolean().optional(),
+  /** Which epics appear at all. Anything not listed stays internal. */
+  epics: z
+    .array(z.object({ id: z.string(), publicVisible: z.boolean() }))
+    .max(200)
+    .optional(),
+});
+
+export const roadmapSubscribeSchema = z.object({
+  email,
+  /** Filled in only by "Tell us what's missing". */
+  message: z.string().trim().max(1000).optional().nullable(),
+});

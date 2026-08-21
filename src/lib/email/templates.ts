@@ -145,3 +145,45 @@ export function digestTemplate(opts: {
     }),
   };
 }
+
+export function roadmapConfirmTemplate(opts: {
+  orgName: string;
+  projectName: string;
+  confirmUrl: string;
+}) {
+  return {
+    subject: `Confirm updates for the ${opts.orgName} roadmap`,
+    html: shell({
+      preheader: `One click and you're subscribed to ${opts.projectName} updates.`,
+      heading: "Confirm your subscription",
+      body: `<p>You asked to hear when the <strong>${escapeHtml(opts.projectName)}</strong> roadmap moves. Confirm below and we'll send one short email whenever something on the page changes — nothing else.</p>`,
+      cta: { label: "Confirm subscription", url: opts.confirmUrl },
+      footnote: "If you didn't ask for this, ignore this email and nothing happens.",
+    }),
+  };
+}
+
+export function roadmapChangedTemplate(opts: {
+  orgName: string;
+  projectName: string;
+  roadmapUrl: string;
+  unsubscribeUrl: string;
+  changes: string[];
+}) {
+  const list = opts.changes.length
+    ? `<ul style="margin:14px 0 0;padding-left:18px">${opts.changes
+        .map((line) => `<li style="margin-bottom:6px">${escapeHtml(line)}</li>`)
+        .join("")}</ul>`
+    : "";
+
+  return {
+    subject: `The ${opts.orgName} roadmap has moved`,
+    html: shell({
+      preheader: `What's new on the ${opts.projectName} roadmap.`,
+      heading: "The roadmap has moved",
+      body: `<p>Something on the <strong>${escapeHtml(opts.projectName)}</strong> roadmap changed since you last heard from us.</p>${list}`,
+      cta: { label: "See the roadmap", url: opts.roadmapUrl },
+      footnote: `Don't want these? Unsubscribe: ${opts.unsubscribeUrl}`,
+    }),
+  };
+}
