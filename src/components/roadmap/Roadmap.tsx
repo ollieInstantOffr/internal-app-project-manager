@@ -6,6 +6,7 @@ import { api, ApiError } from "@/lib/client";
 import { useToast } from "@/components/Toast";
 import { Modal, Popover } from "@/components/ui";
 import { DateField } from "@/components/DateField";
+import { DeleteEpicModal } from "@/components/epics/DeleteEpicModal";
 import { useShell } from "@/components/shell/context";
 import { ShareSheet, type ShareEpic, type SharePage } from "./ShareSheet";
 import { accent } from "@/lib/constants";
@@ -54,6 +55,7 @@ export function Roadmap({
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [creating, setCreating] = useState<null | "epic" | "milestone">(null);
   const [editingMilestone, setEditingMilestone] = useState<RoadmapMilestone | null>(null);
+  const [deletingEpic, setDeletingEpic] = useState<RoadmapEpic | null>(null);
   const [share, setShare] = useState<{
     projectKey: string;
     projectName: string;
@@ -290,29 +292,64 @@ export function Roadmap({
           </div>
           <div className="scroll-y" style={{ flex: 1 }}>
             {visible.map((epic) => (
-              <button
-                key={epic.id}
-                style={{
-                  height: 58,
-                  width: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  gap: 2,
-                  textAlign: "left",
-                }}
-                onClick={() => router.push(`/projects/${epic.projectKey}/epics?epic=${epic.id}`)}
-              >
-                <span className="truncate" style={{ font: "600 12.5px var(--display)" }}>
-                  {epic.name}
-                </span>
-                <span className="truncate" style={{ font: "400 10px var(--sans)", color: "var(--muted-2)" }}>
-                  {epic.projectName} · {epic.issueCount} issue{epic.issueCount === 1 ? "" : "s"} ·{" "}
-                  {epic.status === EpicStatus.PLANNED && epic.progress === 0
-                    ? "not started"
-                    : `${epic.progress}%`}
-                </span>
-              </button>
+              <div key={epic.id} className="roadmap-label-row">
+                <button
+                  className="roadmap-label-open"
+                  onClick={() => router.push(`/projects/${epic.projectKey}/epics?epic=${epic.id}`)}
+                >
+                  <span className="truncate" style={{ font: "600 12.5px var(--display)" }}>
+                    {epic.name}
+                  </span>
+                  <span
+                    className="truncate"
+                    style={{ font: "400 10px var(--sans)", color: "var(--muted-2)" }}
+                  >
+                    {epic.projectName} · {epic.issueCount} issue{epic.issueCount === 1 ? "" : "s"} ·{" "}
+                    {epic.status === EpicStatus.PLANNED && epic.progress === 0
+                      ? "not started"
+                      : `${epic.progress}%`}
+                  </span>
+                </button>
+
+                <Popover
+                  align="right"
+                  width={180}
+                  trigger={({ toggle }) => (
+                    <button
+                      className="epic-menu roadmap-label-menu"
+                      onClick={toggle}
+                      aria-label={`Actions for ${epic.name}`}
+                    >
+                      ⋯
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      <button
+                        className="menu-item"
+                        onClick={() => {
+                          router.push(`/projects/${epic.projectKey}/epics?epic=${epic.id}`);
+                          close();
+                        }}
+                      >
+                        Open epic
+                      </button>
+                      <div className="menu-sep" />
+                      <button
+                        className="menu-item"
+                        style={{ color: "var(--danger)" }}
+                        onClick={() => {
+                          setDeletingEpic(epic);
+                          close();
+                        }}
+                      >
+                        Delete epic
+                      </button>
+                    </>
+                  )}
+                </Popover>
+              </div>
             ))}
             <button
               style={{ height: 44, font: "400 11.5px var(--sans)", color: "var(--muted-2)" }}
@@ -574,6 +611,16 @@ export function Roadmap({
         <MilestoneModal
           milestone={editingMilestone}
           onClose={() => setEditingMilestone(null)}
+        />
+      )}
+      {deletingEpic && (
+        <DeleteEpicModal
+          epic={{
+            id: deletingEpic.id,
+            name: deletingEpic.name,
+            issueCount: deletingEpic.issueCount,
+          }}
+          onClose={() => setDeletingEpic(null)}
         />
       )}
 

@@ -3238,3 +3238,33 @@ textarea.pub-input { resize: vertical; min-height: 74px; line-height: 1.6; }
   line-height: 1;
 }
 .milestone-menu:hover { color: var(--text); }
+
+.epic-menu {
+  font: 400 13px var(--sans);
+  color: var(--faintest);
+  padding: 0 4px;
+  line-height: 1;
+}
+.epic-menu:hover { color: var(--text); }
+
+/* The roadmap's epic label: a navigating area with its own actions beside it. */
+.roadmap-label-row { height: 58px; display: flex; align-items: center; gap: 4px; }
+.roadmap-label-open {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  text-align: left;
+}
+.roadmap-label-menu { opacity: 0; flex: none; }
+.roadmap-label-row:hover .roadmap-label-menu,
+.roadmap-label-menu:focus-visible,
+.roadmap-label-row:focus-within .roadmap-label-menu { opacity: 1; }
+
+/* No hover on touch, so the row's actions are always there. */
+@media (pointer: coarse) {
+  .roadmap-label-menu { opacity: 1; }
+}

@@ -8,6 +8,7 @@ import { useToast } from "@/components/Toast";
 import { Avatar, Bar, Editable, Empty, Modal, Popover } from "@/components/ui";
 import { NewIssueModal } from "@/components/NewIssueButton";
 import { DateField } from "@/components/DateField";
+import { DeleteEpicModal } from "./DeleteEpicModal";
 import { EpicStatus, IssueStatus } from "@/lib/types";
 import { ACCENT_NAMES, STATUS_LABEL, accent } from "@/lib/constants";
 import type { BoardIssue, BoardProject } from "@/components/board/types";
@@ -47,6 +48,8 @@ export function Epics({
   const [composeIn, setComposeIn] = useState<string | null>(null);
 
   const selected = epics.find((e) => e.id === selectedId) ?? null;
+
+  const [deleting, setDeleting] = useState<EpicRow | null>(null);
 
   async function patch(epic: EpicRow, body: Record<string, unknown>) {
     try {
@@ -183,6 +186,33 @@ export function Epics({
                 >
                   {isOpen ? "Collapse" : "Open"}
                 </Link>
+
+                <Popover
+                  align="right"
+                  width={180}
+                  trigger={({ toggle }) => (
+                    <button
+                      className="epic-menu"
+                      onClick={toggle}
+                      aria-label={`Actions for ${epic.name}`}
+                    >
+                      ⋯
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <button
+                      className="menu-item"
+                      style={{ color: "var(--danger)" }}
+                      onClick={() => {
+                        setDeleting(epic);
+                        close();
+                      }}
+                    >
+                      Delete epic
+                    </button>
+                  )}
+                </Popover>
               </div>
 
               <div className="row-flex" style={{ gap: 10, flexWrap: "wrap" }}>
@@ -263,6 +293,16 @@ export function Epics({
       {creating && <NewEpicModal projectId={project.id} onClose={() => setCreating(false)} />}
       {composeIn && (
         <NewIssueModal projectId={project.id} epicId={composeIn} onClose={() => setComposeIn(null)} />
+      )}
+      {deleting && (
+        <DeleteEpicModal
+          epic={{
+            id: deleting.id,
+            name: deleting.name,
+            issueCount: deleting.issues.length,
+          }}
+          onClose={() => setDeleting(null)}
+        />
       )}
     </main>
   );
