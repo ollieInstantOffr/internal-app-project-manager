@@ -33,18 +33,7 @@ export function IssueSidebar({
   const pr = issue.pullRequests[0];
 
   return (
-    <aside
-      style={{
-        width: 300,
-        flex: "none",
-        borderLeft: "1px solid var(--line)",
-        padding: "22px 20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 18,
-        overflowY: "auto",
-      }}
-    >
+    <aside className="issue-aside">
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <Field label="Assignee">
           <Popover

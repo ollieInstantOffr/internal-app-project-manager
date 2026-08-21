@@ -148,17 +148,8 @@ export function MyWork({
 
   return (
     <main className="panel">
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <div
-          style={{
-            width: 420,
-            flex: "none",
-            display: "flex",
-            flexDirection: "column",
-            borderRight: "1px solid var(--line)",
-            minHeight: 0,
-          }}
-        >
+      <div className="split split-queue">
+        <div className="queue-pane">
           <header className="panel-head panel-head-sm" style={{ padding: "0 20px" }}>
             <div>
               <h1 className="panel-title panel-title-sm">My work</h1>
@@ -215,7 +206,17 @@ export function MyWork({
                     <button
                       key={item.id}
                       data-focused={isFocused}
-                      onClick={() => setCursor(index)}
+                      onClick={() => {
+                        setCursor(index);
+                        // Below the breakpoint the detail pane is hidden, so a
+                        // tap has to take you to the issue itself.
+                        if (
+                          item.issue &&
+                          window.matchMedia("(max-width: 767px)").matches
+                        ) {
+                          router.push(`/issues/${item.issue.key}`);
+                        }
+                      }}
                       onDoubleClick={() => item.issue && router.push(`/issues/${item.issue.key}`)}
                       style={{
                         display: "flex",
@@ -314,7 +315,7 @@ export function MyWork({
           </div>
         </div>
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div className="queue-detail">
           {focused?.issue ? (
             <>
               <header className="panel-head panel-head-sm">

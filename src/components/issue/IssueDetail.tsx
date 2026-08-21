@@ -139,8 +139,8 @@ export function IssueDetail({
 
   return (
     <main className="panel">
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div className="split split-issue">
+        <div className="split-main">
           <header
             style={{
               height: 56,
@@ -168,7 +168,10 @@ export function IssueDetail({
 
             <div className="grow" />
 
-            <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>
+            <span
+              className="mono kbd-hint"
+              style={{ fontSize: 11, color: "var(--muted-2)" }}
+            >
               ↑↓ next issue
             </span>
 

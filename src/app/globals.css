@@ -837,6 +837,104 @@ input, textarea, select { font: inherit; color: inherit; }
 .table-row:last-child { border-bottom: none; }
 .table-row:hover { background: var(--surface); }
 
+/* ── split layouts ────────────────────────────────────────── */
+
+.split { display: flex; flex: 1; min-height: 0; }
+.split-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+.issue-aside {
+  width: 300px;
+  flex: none;
+  border-left: 1px solid var(--line);
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+}
+
+.backlog-list {
+  flex: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 0 0 22px;
+  transition: background 0.15s ease;
+}
+
+.sprint-panel {
+  width: 342px;
+  flex: none;
+  padding: 0 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.queue-pane {
+  width: 420px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  min-height: 0;
+}
+.queue-detail { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+.roadmap-body { flex: 1; display: flex; min-height: 0; padding: 0 22px 18px; }
+.roadmap-labels { width: 236px; flex: none; display: flex; flex-direction: column; }
+
+.settings-split { flex-direction: row; gap: 16px; padding: 4px 22px 22px; }
+.settings-main { flex: 1.5; display: flex; flex-direction: column; gap: 13px; min-width: 0; }
+.settings-aside { width: 310px; flex: none; display: flex; flex-direction: column; gap: 13px; }
+
+.onboarding-aside {
+  width: 470px;
+  flex: none;
+  background: var(--panel);
+  border-radius: var(--r-2xl) 0 0 var(--r-2xl);
+  border-left: 1px solid var(--line);
+  padding: 36px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.two-col { display: flex; gap: 16px; flex: 1; min-height: 0; }
+.two-col-main { flex: 1.5; display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+.two-col-side { flex: 1; display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+
+/* ── mobile chrome ────────────────────────────────────────── */
+
+/* Both are desktop-invisible; the breakpoints below switch them on. */
+.topbar { display: none; }
+.nav-scrim { display: none; }
+
+.topbar-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  flex: none;
+}
+.topbar-btn:hover { background: var(--surface); }
+
+.burger, .burger::before, .burger::after {
+  display: block;
+  width: 16px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  content: "";
+}
+.burger { position: relative; }
+.burger::before { position: absolute; top: -5px; }
+.burger::after { position: absolute; top: 5px; }
+
 /* ── auth split ───────────────────────────────────────────── */
 
 .auth { display: flex; min-height: 100dvh; background: var(--bg); }
@@ -1025,3 +1123,207 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
 .grow { flex: 1; min-width: 0; }
 .row-flex { display: flex; align-items: center; gap: 10px; }
 .col-flex { display: flex; flex-direction: column; }
+
+
+/* ═══════════════════════════════════════════════════════════
+   Responsive. Desktop is the design's native size; below that
+   the fixed panes stack and the rail becomes a drawer.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── laptop: give the side panes less room ───────────────── */
+@media (max-width: 1180px) {
+  .rail { width: 196px; }
+  .issue-aside { width: 260px; }
+  .sprint-panel { width: 290px; }
+  .queue-pane { width: 360px; }
+  .roadmap-labels { width: 190px; }
+  .settings-aside { width: 270px; }
+  .onboarding-aside { width: 380px; }
+}
+
+/* ── tablet: drop the second column where it stops earning its place ── */
+@media (max-width: 1024px) {
+  /* Header controls wrap onto a second line rather than overflowing off-screen. */
+  .panel-head,
+  .panel-head-sm {
+    height: auto;
+    min-height: 62px;
+    flex-wrap: wrap;
+    padding: 10px 22px;
+    row-gap: 8px;
+  }
+
+  .stats { flex-wrap: wrap; }
+  .stats > .stat { flex: 1 1 calc(50% - 7px); min-width: 150px; }
+
+  .split-backlog { flex-direction: column; overflow-y: auto; }
+  .backlog-list { padding: 0 22px; flex: none; }
+  .sprint-panel { width: auto; padding: 0 22px 18px; }
+
+  .settings-split { flex-direction: column; }
+  .settings-aside { width: auto; }
+
+  .split-onboarding { flex-direction: column; overflow-y: auto; }
+  .onboarding-aside {
+    width: auto;
+    border-radius: 0;
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+
+  .queue-pane { width: 340px; }
+
+  /* Too many columns to compress without truncating names to nothing. */
+  .table { overflow-x: auto; }
+  .table-head, .table-row { min-width: 620px; }
+}
+
+/* ── mobile ──────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  body { font-size: 14px; }
+
+  .shell { flex-direction: column; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 52px;
+    flex: none;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    z-index: 30;
+  }
+
+  /* The rail slides over the content rather than compressing it. */
+  .rail {
+    position: fixed;
+    z-index: 80;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 84vw);
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    transform: translateX(-100%);
+    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+  }
+  .shell[data-nav-open="true"] .rail { transform: none; }
+
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: rgba(10, 8, 14, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  .shell[data-nav-open="true"] .nav-scrim { opacity: 1; pointer-events: auto; }
+
+  .panel {
+    border-radius: 0;
+    border-left: none;
+    min-height: 0;
+  }
+
+  /* Headers stop being one tall row and wrap onto two. */
+  .panel-head,
+  .panel-head-sm {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .panel-title { font-size: 17px; }
+  .panel-title-sm { font-size: 16px; }
+  .panel-body { padding: 4px 16px 16px; gap: 14px; }
+
+  .stats > .stat { flex: 1 1 calc(50% - 7px); }
+  .stat-value { font-size: 26px; }
+
+  /* Board: one column at a time, snapped, rather than five squeezed. */
+  .board { padding: 0 16px 16px; gap: 10px; scroll-snap-type: x mandatory; }
+  .column {
+    flex: 0 0 auto;
+    width: min(82vw, 300px);
+    max-width: none;
+    scroll-snap-align: start;
+  }
+
+  .split-issue,
+  .split-queue { flex-direction: column; overflow-y: auto; }
+
+  .two-col { flex-direction: column; flex: none; }
+  .two-col-main,
+  .two-col-side { flex: none; }
+
+  .issue-aside {
+    width: auto;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    overflow: visible;
+  }
+  .split-issue .split-main { overflow: visible; }
+
+  /* Master/detail collapses to the list; a row opens the full issue page. */
+  .queue-pane { width: auto; border-right: none; }
+  .queue-detail { display: none; }
+
+  .backlog-list { padding: 0 16px; }
+  .sprint-panel { padding: 0 16px 16px; }
+
+  .roadmap-body { padding: 0 16px 16px; overflow-x: auto; }
+  .roadmap-labels { width: 150px; position: sticky; left: 0; z-index: 2; background: var(--panel); }
+  .timeline-grid { min-width: 520px; }
+
+  /* The action bar scrolls instead of overflowing off-screen. */
+  .bulkbar {
+    left: 8px;
+    right: 8px;
+    bottom: 10px;
+    border-radius: 18px;
+    padding: 8px 12px;
+    gap: 10px;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  .bulkbar .mono { display: none; }
+
+  .table { overflow-x: auto; }
+  .table-head, .table-row { min-width: 640px; }
+
+  .modal { padding: 20px; }
+  .overlay { padding-top: 56px; }
+  .palette { max-height: calc(100vh - 90px); }
+
+  .toast-wrap { left: 12px; right: 12px; transform: none; }
+  .toast { width: 100%; }
+
+  .auth-form { padding: 32px 20px; }
+
+  /* Keyboard affordances mean nothing on a touch device. */
+  .kbd-hint { display: none; }
+
+  /* Comfortable tap targets. */
+  .btn { height: 38px; }
+  .btn-sm { height: 32px; }
+  .rail-item { padding: 10px 11px; }
+  .menu-item { padding: 10px 9px; }
+}
+
+/* ── very small phones ───────────────────────────────────── */
+@media (max-width: 360px) {
+  .stats > .stat { flex: 1 1 100%; }
+  .seg > button { padding: 6px 10px; font-size: 11px; }
+}
+
+/* ── coarse pointers: no hover affordances to rely on ────── */
+@media (pointer: coarse) {
+  .issue-card { cursor: default; }
+  .editable { padding: 6px 8px; margin: -6px -8px; }
+}

@@ -37,7 +37,7 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
         <button className="rail-search" onClick={onOpenPalette}>
           Search issues
           <span className="grow" />
-          <span className="mono" style={{ fontSize: 9, fontWeight: 500 }}>
+          <span className="mono kbd-hint" style={{ fontSize: 9, fontWeight: 500 }}>
             ⌘K
           </span>
         </button>
@@ -133,7 +133,7 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
 
       {pathname.startsWith("/my-work") && (
         <div
-          className="card"
+          className="card kbd-hint"
           style={{
             marginTop: "auto",
             borderRadius: 14,

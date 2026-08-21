@@ -172,8 +172,8 @@ export function Roadmap({
         </Popover>
       </header>
 
-      <div style={{ flex: 1, display: "flex", minHeight: 0, padding: "0 22px 18px" }}>
-        <div style={{ width: 236, flex: "none", display: "flex", flexDirection: "column" }}>
+      <div className="roadmap-body">
+        <div className="roadmap-labels">
           <div className="eyebrow" style={{ height: 34, display: "flex", alignItems: "center" }}>
             Epic
           </div>

@@ -68,7 +68,7 @@ export default function FirstProject({ githubConnected }: { githubConnected: boo
   }
 
   return (
-    <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+    <div className="split split-onboarding">
       <form
         onSubmit={submit}
         style={{
@@ -230,19 +230,7 @@ export default function FirstProject({ githubConnected }: { githubConnected: boo
         )}
       </form>
 
-      <aside
-        style={{
-          width: 470,
-          flex: "none",
-          background: "var(--panel)",
-          borderRadius: "18px 0 0 18px",
-          borderLeft: "1px solid var(--line)",
-          padding: "36px 34px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-        }}
-      >
+      <aside className="onboarding-aside">
         <div className="eyebrow">Preview</div>
 
         <div

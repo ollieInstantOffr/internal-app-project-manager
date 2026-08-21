@@ -116,6 +116,23 @@ front of that path, or allowlist GitHub's hook ranges from
 Nothing breaks without webhooks — issues simply stop moving on their own, and
 **Settings → Integrations → Try an automation** still exercises every rule.
 
+## Responsive
+
+Desktop is the design's native size and is unchanged. Below that the fixed panes
+give way rather than compress:
+
+| Width | Behaviour |
+| --- | --- |
+| ≥ 1180px | as designed |
+| ≤ 1180px | side panes narrow — rail, issue sidebar, sprint panel, queue |
+| ≤ 1024px | panel headers wrap instead of overflowing; stat tiles go 2-up; backlog, settings and onboarding stack; wide tables scroll |
+| ≤ 767px | rail becomes a drawer behind a top bar; board columns scroll one at a time with snap; issue sidebar moves below the content; My work drops the detail pane and a row opens the issue |
+| ≤ 360px | stat tiles go full width |
+
+Keyboard affordances (`⌘K`, `↑↓ next issue`, the shortcut card) are hidden on
+touch, tap targets grow, and the bulk action bar scrolls horizontally rather
+than running off the edge.
+
 ## The screens
 
 | Route | Design | What it does |

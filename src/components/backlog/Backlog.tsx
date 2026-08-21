@@ -342,7 +342,7 @@ export function Backlog({
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <div className="split split-backlog">
           <BacklogList
             groups={groups}
             collapsed={collapsed}
@@ -457,15 +457,8 @@ function BacklogList({
   return (
     <div
       ref={setNodeRef}
-      style={{
-        flex: 1.6,
-        display: "flex",
-        flexDirection: "column",
-        minWidth: 0,
-        padding: "0 0 0 22px",
-        background: isOver ? "var(--accent-wash)" : undefined,
-        transition: "background 0.15s ease",
-      }}
+      className="backlog-list"
+      style={{ background: isOver ? "var(--accent-wash)" : undefined }}
     >
       <div className="scroll-y" style={{ flex: 1, paddingRight: 6 }}>
         {groups.map((group) => {
@@ -625,16 +618,7 @@ function SprintPanel({
 
   if (!sprint) {
     return (
-      <aside
-        style={{
-          width: 342,
-          flex: "none",
-          padding: "0 22px 18px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}
-      >
+      <aside className="sprint-panel">
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <h2 style={{ font: "600 14px var(--display)" }}>No sprint planned</h2>
           <div style={{ font: "400 11px/1.6 var(--sans)", color: "var(--muted)" }}>
@@ -658,17 +642,7 @@ function SprintPanel({
   })} – ${new Date(sprint.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 
   return (
-    <aside
-      style={{
-        width: 342,
-        flex: "none",
-        padding: "0 22px 18px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        minHeight: 0,
-      }}
-    >
+    <aside className="sprint-panel">
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
           <h2 style={{ font: "600 14px var(--display)" }}>{sprint.name}</h2>

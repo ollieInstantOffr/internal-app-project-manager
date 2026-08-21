@@ -88,8 +88,8 @@ export function Integrations({
         </div>
       </header>
 
-      <div className="panel-body" style={{ padding: "4px 22px 22px", flexDirection: "row", gap: 16 }}>
-        <div style={{ flex: 1.5, display: "flex", flexDirection: "column", gap: 13, minWidth: 0 }}>
+      <div className="panel-body settings-split">
+        <div className="settings-main">
           <section className="card" style={{ padding: 17, display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="row-flex" style={{ gap: 13 }}>
               <span
@@ -213,7 +213,7 @@ export function Integrations({
           </section>
         </div>
 
-        <div style={{ width: 310, flex: "none", display: "flex", flexDirection: "column", gap: 13 }}>
+        <div className="settings-aside">
           <section className="card card-accent" style={{ padding: 17, display: "flex", flexDirection: "column", gap: 10 }}>
             <div className="row-flex" style={{ gap: 8 }}>
               <h2 style={{ font: "600 14px var(--display)" }}>Free plan</h2>

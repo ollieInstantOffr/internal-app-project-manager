@@ -188,8 +188,8 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 16, flex: 1, minHeight: 0 }}>
-          <section style={{ flex: 1.5, display: "flex", flexDirection: "column", gap: 11, minWidth: 0 }}>
+        <div className="two-col">
+          <section className="two-col-main">
             <h2 style={{ font: "600 13px var(--display)" }}>Projects</h2>
 
             {projects.map((project, index) => {
@@ -267,7 +267,7 @@ export default async function HomePage() {
             </Link>
           </section>
 
-          <section style={{ flex: 1, display: "flex", flexDirection: "column", gap: 11, minWidth: 0 }}>
+          <section className="two-col-side">
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <h2 style={{ font: "600 13px var(--display)" }}>Activity</h2>
             </div>

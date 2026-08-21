@@ -155,10 +155,10 @@ export function Insights({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 14, flex: 1, minHeight: 0 }}>
+        <div className="two-col">
           <section
             className="card"
-            style={{ flex: 1.35, display: "flex", flexDirection: "column", gap: 14, padding: 17 }}
+            style={{ flex: 1.35, display: "flex", flexDirection: "column", gap: 14, padding: 17, minWidth: 0 }}
           >
             <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
               <h2 style={{ font: "600 13px var(--display)" }}>Velocity by sprint</h2>
@@ -209,7 +209,7 @@ export function Insights({
             )}
           </section>
 
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+          <div className="two-col-side">
             <section
               className="card"
               style={{ flex: 1, display: "flex", flexDirection: "column", gap: 13, padding: 17 }}
