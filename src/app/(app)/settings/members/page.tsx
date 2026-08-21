@@ -2,6 +2,7 @@ import { requireOrg } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { IssueStatus } from "@/lib/types";
 import { Members } from "@/components/settings/Members";
+import { appUrl } from "@/lib/app-url";
 
 export const metadata = { title: "Members · Arc" };
 export const dynamic = "force-dynamic";
@@ -59,7 +60,7 @@ export default async function MembersPage({
   return (
     <Members
       openInvite={invite === "1"}
-      inviteLinkBase={`${process.env.APP_URL || "http://localhost:3000"}/settings/members`}
+      inviteLinkBase={appUrl("/settings/members")}
       members={memberships.map((m) => ({
         id: m.user.id,
         name: m.user.name,

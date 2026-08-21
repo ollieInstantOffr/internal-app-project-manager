@@ -44,7 +44,7 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "3321:3000"
+      - "3321:3321"
     environment:
       DATABASE_URL: postgresql://arc:arc@db:5432/arc?schema=public
       APP_URL: ${APP_URL:-http://localhost:3321}

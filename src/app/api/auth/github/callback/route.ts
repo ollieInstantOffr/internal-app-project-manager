@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { createSession } from "@/lib/auth";
 import { hueFor } from "@/lib/constants";
-
-const APP = () => process.env.APP_URL || "http://localhost:3000";
+import { appUrl } from "@/lib/app-url";
 
 type GhUser = { id: number; login: string; name: string | null; email: string | null };
 type GhEmail = { email: string; primary: boolean; verified: boolean };
@@ -19,7 +18,7 @@ export async function GET(req: Request) {
   jar.delete("arc_oauth_state");
 
   if (!code || !state || !stored || stored.split(":")[0] !== state) {
-    return NextResponse.redirect(`${APP()}/login?error=oauth_state`);
+    return NextResponse.redirect(appUrl("/login?error=oauth_state"));
   }
 
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
@@ -29,12 +28,12 @@ export async function GET(req: Request) {
       client_id: process.env.GITHUB_CLIENT_ID,
       client_secret: process.env.GITHUB_CLIENT_SECRET,
       code,
-      redirect_uri: `${APP()}/api/auth/github/callback`,
+      redirect_uri: appUrl("/api/auth/github/callback"),
     }),
   });
   const tokenJson = (await tokenRes.json()) as { access_token?: string };
   const accessToken = tokenJson.access_token;
-  if (!accessToken) return NextResponse.redirect(`${APP()}/login?error=oauth_token`);
+  if (!accessToken) return NextResponse.redirect(appUrl("/login?error=oauth_token"));
 
   const gh = { authorization: `Bearer ${accessToken}`, accept: "application/vnd.github+json" };
   const profile = (await (await fetch("https://api.github.com/user", { headers: gh })).json()) as GhUser;
@@ -46,7 +45,7 @@ export async function GET(req: Request) {
     ).json()) as GhEmail[];
     email = emails.find((e) => e.primary && e.verified)?.email ?? emails[0]?.email ?? null;
   }
-  if (!email) return NextResponse.redirect(`${APP()}/login?error=oauth_email`);
+  if (!email) return NextResponse.redirect(appUrl("/login?error=oauth_email"));
 
   const normalized = email.toLowerCase();
 
@@ -82,12 +81,12 @@ export async function GET(req: Request) {
   await createSession(user.id, req.headers.get("user-agent") ?? undefined);
 
   const membership = await db.membership.findFirst({ where: { userId: user.id } });
-  if (membership) return NextResponse.redirect(`${APP()}/home`);
+  if (membership) return NextResponse.redirect(appUrl("/home"));
 
   const invite = await db.invite.findFirst({
     where: { email: normalized, acceptedAt: null, expiresAt: { gt: new Date() } },
   });
   return NextResponse.redirect(
-    invite ? `${APP()}/invite/${invite.token}` : `${APP()}/onboarding/organization`,
+    invite ? appUrl(`/invite/${invite.token}`) : appUrl("/onboarding/organization"),
   );
 }

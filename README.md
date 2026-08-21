@@ -36,6 +36,8 @@ alone.
 | `npm run docker:reset` | wipe the volume and start fresh, re-seeded |
 
 `GET /api/health` round-trips the database and backs the container healthcheck.
+The server listens on **3321 inside the container as well**, so the port is the
+same everywhere and nothing ever binds 3000.
 
 ### Running the app outside Docker
 
@@ -124,7 +126,7 @@ Every screen is backed by REST route handlers under `/api`, and the same routes
 accept an API token, so the UI and the public API are one surface.
 
 ```bash
-curl -H "Authorization: Bearer arc_…" http://localhost:3000/api/issues?project=WEB
+curl -H "Authorization: Bearer arc_…" http://localhost:3321/api/issues?project=WEB
 ```
 
 Create a token in **Settings → Integrations → CLI & API tokens** (shown once,

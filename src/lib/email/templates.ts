@@ -1,6 +1,5 @@
 import { shell, card, issueLine, escapeHtml } from "./layout";
-
-const APP = () => process.env.APP_URL || "http://localhost:3000";
+import { appUrl } from "../app-url";
 
 export function verifyEmailTemplate(name: string, token: string) {
   return {
@@ -9,7 +8,7 @@ export function verifyEmailTemplate(name: string, token: string) {
       preheader: "One click and your Arc account is live.",
       heading: `Welcome, ${name.split(" ")[0]}`,
       body: `<p style="margin:0">Confirm this address and your account is ready. The link works for 24 hours.</p>`,
-      cta: { label: "Verify email", url: `${APP()}/verify-email?token=${token}` },
+      cta: { label: "Verify email", url: appUrl(`/verify-email?token=${token}`) },
       footnote: "If you didn't create an Arc account, ignore this email.",
     }),
   };
@@ -22,7 +21,7 @@ export function resetPasswordTemplate(name: string, token: string) {
       preheader: "Choose a new password.",
       heading: "Reset your password",
       body: `<p style="margin:0">Hi ${escapeHtml(name.split(" ")[0])} — pick a new password with the link below. It expires in one hour and can be used once.</p>`,
-      cta: { label: "Choose a new password", url: `${APP()}/reset-password?token=${token}` },
+      cta: { label: "Choose a new password", url: appUrl(`/reset-password?token=${token}`) },
       footnote: "Didn't ask for this? Your password hasn't changed.",
     }),
   };
@@ -43,7 +42,7 @@ export function inviteTemplate(opts: {
         opts.orgName,
       )} on Arc as ${escapeHtml(opts.role.toLowerCase())}.</p>
       <p style="margin:12px 0 0">No setup on your side — accept and you go straight to the board.</p>`,
-      cta: { label: "Accept invite", url: `${APP()}/invite/${opts.token}` },
+      cta: { label: "Accept invite", url: appUrl(`/invite/${opts.token}`) },
       footnote: "This invite expires in 14 days.",
     }),
   };
@@ -68,7 +67,7 @@ export function mentionTemplate(opts: {
               opts.body,
             )}</div>`,
         ),
-      cta: { label: "Reply on Arc", url: `${APP()}/issues/${opts.issueKey}` },
+      cta: { label: "Reply on Arc", url: appUrl(`/issues/${opts.issueKey}`) },
     }),
   };
 }
@@ -87,7 +86,7 @@ export function assignedTemplate(opts: {
       body:
         `<p style="margin:0">${escapeHtml(opts.actorName)} assigned this to you.</p>` +
         card(issueLine(opts.issueKey, opts.issueTitle, opts.meta)),
-      cta: { label: "Open issue", url: `${APP()}/issues/${opts.issueKey}` },
+      cta: { label: "Open issue", url: appUrl(`/issues/${opts.issueKey}`) },
     }),
   };
 }
@@ -106,7 +105,7 @@ export function blockingTemplate(opts: {
         `<p style="margin:0"><b style="color:#f0eee9">${escapeHtml(
           opts.blockedKey,
         )}</b> is blocked until this moves.</p>` + card(issueLine(opts.issueKey, opts.issueTitle)),
-      cta: { label: "Unblock it", url: `${APP()}/issues/${opts.issueKey}` },
+      cta: { label: "Unblock it", url: appUrl(`/issues/${opts.issueKey}`) },
     }),
   };
 }
@@ -121,7 +120,7 @@ export function ciFailedTemplate(opts: { issueKey: string; branch: string; detai
         `<p style="margin:0">On <span style="font-family:ui-monospace,Menlo,monospace;color:#f0eee9">${escapeHtml(
           opts.branch,
         )}</span> — ${escapeHtml(opts.detail)}.</p>`,
-      cta: { label: `Open ${opts.issueKey}`, url: `${APP()}/issues/${opts.issueKey}` },
+      cta: { label: `Open ${opts.issueKey}`, url: appUrl(`/issues/${opts.issueKey}`) },
     }),
   };
 }
@@ -143,7 +142,7 @@ export function digestTemplate(opts: {
           opts.blockingCount ? `, ${opts.blockingCount} blocking someone else` : ""
         }.${opts.sprintName ? ` You're in ${escapeHtml(opts.sprintName)}.` : ""}</p>` +
         (rows ? card(rows) : ""),
-      cta: { label: "Open My work", url: `${APP()}/my-work` },
+      cta: { label: "Open My work", url: appUrl("/my-work") },
       footnote: "Turn digests off in Settings → Notifications.",
     }),
   };

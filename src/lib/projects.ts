@@ -6,6 +6,7 @@ import { projectKeyFrom } from "./format";
 import { RANK_STEP } from "./rank";
 import { ACCENT_NAMES } from "./constants";
 import { listRepoIssues, ensureWebhook } from "./github";
+import { appUrl } from "./app-url";
 
 /** Finds a free 2–6 char key for a project inside an org. */
 export async function allocateKey(orgId: string, name: string, preferred?: string) {
@@ -176,7 +177,7 @@ export async function seedFromRepo(opts: {
     webhook = await ensureWebhook(
       opts.token,
       opts.repoFullName,
-      process.env.APP_URL || "http://localhost:3000",
+      appUrl(),
       process.env.GITHUB_WEBHOOK_SECRET,
     ).catch(() => false);
   }

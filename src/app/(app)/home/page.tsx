@@ -29,7 +29,7 @@ export default async function HomePage() {
     blockingLinks,
     prsWaiting,
     activities,
-    activeSprint,
+    activeSprints,
     memberships,
   ] = await Promise.all([
       db.project.findMany({
@@ -93,9 +93,10 @@ export default async function HomePage() {
           issue: { select: { key: true } },
         },
       }),
-      db.sprint.findFirst({
+      // Every running sprint, not an arbitrary one — an org can have several.
+      db.sprint.findMany({
         where: { project: { orgId: org.id }, status: SprintStatus.ACTIVE },
-        orderBy: { startDate: "desc" },
+        orderBy: { endDate: "asc" },
         include: { issues: { select: { status: true, estimate: true } } },
       }),
       db.membership.findMany({
@@ -106,15 +107,20 @@ export default async function HomePage() {
 
   const peopleById = new Map(memberships.map((m) => [m.user.id, m.user]));
 
-  const sprintDone = activeSprint
-    ? activeSprint.issues
-        .filter((i) => i.status === IssueStatus.DONE)
-        .reduce((n, i) => n + (i.estimate ?? 0), 0)
-    : 0;
-  const sprintTotal = activeSprint
-    ? activeSprint.issues.reduce((n, i) => n + (i.estimate ?? 0), 0)
-    : 0;
+  const sprintIssues = activeSprints.flatMap((s) => s.issues);
+  const sprintDone = sprintIssues
+    .filter((i) => i.status === IssueStatus.DONE)
+    .reduce((n, i) => n + (i.estimate ?? 0), 0);
+  const sprintTotal = sprintIssues.reduce((n, i) => n + (i.estimate ?? 0), 0);
   const sprintPct = pct(sprintDone, sprintTotal);
+
+  // Soonest to end is the one worth naming; the rest are counted.
+  const nearestSprint = activeSprints[0] ?? null;
+  const sprintLine = !nearestSprint
+    ? "no sprint running"
+    : activeSprints.length === 1
+      ? `${nearestSprint.name}, ${daysLeft(nearestSprint.endDate)} days left`
+      : `${activeSprints.length} sprints running · ${daysLeft(nearestSprint.endDate)} days left on ${nearestSprint.name}`;
 
   const blockingKeys = [...new Set(blockingLinks.map((l) => l.blocker.key))];
   const oldestPr = prsWaiting[0];
@@ -129,10 +135,7 @@ export default async function HomePage() {
             {greeting()}, {user.name.split(" ")[0]}
           </h1>
           <div className="panel-sub">
-            {weekday}
-            {activeSprint
-              ? ` · ${activeSprint.name}, ${daysLeft(activeSprint.endDate)} days left`
-              : " · no sprint running"}
+            {weekday} · {sprintLine}
           </div>
         </div>
         <div className="grow" />
@@ -168,13 +171,19 @@ export default async function HomePage() {
           </div>
 
           <div className="stat">
-            <div className="stat-label">Sprint progress</div>
+            <div className="stat-label">
+              Sprint progress
+              {activeSprints.length > 1 ? " · all sprints" : ""}
+            </div>
             <div className="stat-value">
               {sprintPct}
               <span>%</span>
             </div>
             <div style={{ marginTop: 2 }}>
               <Bar value={sprintPct} size="sm" />
+            </div>
+            <div className="stat-note">
+              {sprintTotal ? `${sprintDone} of ${sprintTotal} pts` : "nothing estimated yet"}
             </div>
           </div>
         </div>
