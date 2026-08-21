@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   jar.set("arc_oauth_state", `${state}:${intent}`, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: (process.env.APP_URL ?? "").startsWith("https://"),
     path: "/",
     maxAge: 600,
   });

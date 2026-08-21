@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: arc
-      POSTGRES_PASSWORD: arc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env — run `npm run init:env`}
       POSTGRES_DB: arc
     ports:
       # Host access for psql/Studio; the app talks to db:5432 over the network.
@@ -30,7 +30,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://arc:arc@db:5432/arc?schema=public
+      DATABASE_URL: postgresql://arc:${POSTGRES_PASSWORD}@db:5432/arc?schema=public
     command: npx prisma db push
 
   web:
@@ -45,9 +45,9 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "3321:3321"
+      - "${PORT:-3321}:3321"
     environment:
-      DATABASE_URL: postgresql://arc:arc@db:5432/arc?schema=public
+      DATABASE_URL: postgresql://arc:${POSTGRES_PASSWORD}@db:5432/arc?schema=public
       APP_URL: ${APP_URL:-http://localhost:3321}
       SESSION_SECRET: ${SESSION_SECRET:-dev-only-secret-change-me-in-production}
       RESEND_API_KEY: ${RESEND_API_KEY:-}

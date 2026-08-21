@@ -1,0 +1,17 @@
+# Example TLS front end. Caddy gets a certificate automatically for a publicly
+# resolvable name; for an internal-only host use `tls internal` or point it at
+# your own certificate.
+arc.internal.instantoffr.com {
+	encode zstd gzip
+
+	# GitHub delivers webhooks from its own address ranges. If the rest of the
+	# host is internal-only, this is the one path that must be reachable from
+	# the public internet.
+	handle /api/webhooks/* {
+		reverse_proxy 127.0.0.1:3321
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3321
+	}
+}

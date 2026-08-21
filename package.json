@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "init:env": "node scripts/init-env.mjs",
     "dev": "next dev -p 3321",
     "build": "prisma generate && next build",
     "start": "next start -p 3321",

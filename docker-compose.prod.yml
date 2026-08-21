@@ -1,0 +1,16 @@
+# Overlay for the hosted deployment:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Postgres is no longer published to the host, and the app binds loopback only —
+# a reverse proxy in front terminates TLS for APP_URL and forwards to it.
+services:
+  db:
+    ports: !reset []
+
+  web:
+    # `!override` replaces the list. A plain list would be appended to the base
+    # one, and the app would try to bind both 0.0.0.0 and loopback.
+    ports: !override
+      - "127.0.0.1:${PORT:-3321}:3321"
+    environment:
+      NODE_ENV: production

@@ -10,6 +10,9 @@ const SESSION_COOKIE = "arc_session";
 const ORG_COOKIE = "arc_org";
 const SESSION_DAYS = 30;
 
+/** Marked Secure whenever the public origin is HTTPS, whatever NODE_ENV says. */
+const secureCookies = (process.env.APP_URL ?? "").startsWith("https://");
+
 /* ── tokens ────────────────────────────────────────────────── */
 
 export function randomToken(bytes = 32) {
@@ -32,7 +35,7 @@ export async function createSession(userId: string, userAgent?: string) {
   jar.set(SESSION_COOKIE, raw, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies,
     path: "/",
     expires: expiresAt,
   });
@@ -72,7 +75,7 @@ export async function setActiveOrg(orgId: string) {
   jar.set(ORG_COOKIE, orgId, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies,
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });

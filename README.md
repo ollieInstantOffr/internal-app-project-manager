@@ -15,10 +15,11 @@ APIs behind them, the schema, and the automation engine that makes the tagline t
 Everything runs in Docker — app and database both.
 
 ```bash
-docker compose up -d --build
+npm run init:env && docker compose up -d --build
 ```
 
-Open **http://localhost:3321**. The app ships with **no data at all** — you land
+`init:env` writes `.env` with a generated database password and secrets; it
+won't overwrite an existing one. Open **http://localhost:3321**. The app ships with **no data at all** — you land
 on sign-up, and the first account you create becomes the owner of its
 organization. From there it's three short steps: name the organization, invite
 anyone you want, create the first project.
@@ -29,6 +30,7 @@ volume to a healthy app takes about 10 seconds.
 
 | Command | Does |
 | --- | --- |
+| `npm run init:env` | write `.env` with generated secrets |
 | `npm run docker:up` | build and start everything |
 | `npm run docker:logs` | tail the app |
 | `npm run docker:down` | stop, keep the data |
@@ -59,6 +61,7 @@ containers get theirs from compose. The app degrades gracefully without the rest
 
 | Variable | Effect when unset |
 | --- | --- |
+| `POSTGRES_PASSWORD` | **required** — compose refuses to start without it |
 | `APP_URL` | `http://localhost:3321` |
 | `RESEND_API_KEY` | mail is logged, and sign-in links are shown in-browser so you can still get in |
 | `EMAIL_FROM` | falls back to `onboarding@resend.dev` |
@@ -68,6 +71,50 @@ containers get theirs from compose. The app degrades gracefully without the rest
 | `SESSION_SECRET` | a development default is used — set this in production |
 
 ---
+
+## Deploying
+
+The app is served at whatever `APP_URL` says — every link it generates (sign-in
+links, invite emails, the OAuth callback, the webhook it registers) is built
+from that one value, so setting it correctly is most of the work.
+
+```bash
+# .env on the host
+APP_URL="https://arc.internal.instantoffr.com"
+POSTGRES_PASSWORD="…"          # npm run init:env generates one
+SESSION_SECRET="…"
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The overlay stops publishing Postgres to the host and binds the app to
+`127.0.0.1:3321`, so a reverse proxy terminates TLS in front of it.
+`Caddyfile.example` is a working starting point.
+
+Session cookies are marked `Secure` automatically whenever `APP_URL` is
+`https://` — no separate flag to remember, and no silently-insecure cookie if
+you forget one.
+
+### OAuth and webhooks reach the app from different directions
+
+This matters for an internal hostname, because the two have different
+reachability requirements:
+
+| | Who calls the URL | Needs to be reachable from |
+| --- | --- | --- |
+| OAuth callback `/api/auth/github/callback` | the **user's browser**, via redirect | wherever your people are — internal is fine |
+| Webhook `/api/webhooks/github` | **GitHub's servers**, outbound POST | the public internet |
+
+So GitHub sign-in works perfectly well on an internal-only host. Webhooks do
+not — GitHub cannot reach a name that only resolves inside your network. Either
+expose just `/api/webhooks/*` publicly (see the Caddyfile), put a tunnel in
+front of that path, or allowlist GitHub's hook ranges from
+`https://api.github.com/meta`.
+
+Nothing breaks without webhooks — issues simply stop moving on their own, and
+**Settings → Integrations → Try an automation** still exercises every rule.
 
 ## The screens
 
