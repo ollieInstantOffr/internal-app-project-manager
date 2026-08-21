@@ -1,6 +1,7 @@
 import "server-only";
 import type { HttpMethod } from "@/generated/prisma/enums";
 import { listRepoTree, readRepoFile, type RepoTreeEntry } from "../github";
+import { inferShape } from "./infer";
 
 export type DiscoveredRequest = {
   name: string;
@@ -9,6 +10,8 @@ export type DiscoveredRequest = {
   sourceFile: string;
   assertions: string;
   body: string | null;
+  headers: Record<string, string> | null;
+  params: Record<string, string> | null;
 };
 
 export type DiscoveredCollection = {
@@ -38,6 +41,14 @@ const ALL_METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEA
 export async function discoverApi(token: string, repoFullName: string): Promise<Discovery> {
   const { entries, truncated, ref } = await listRepoTree(token, repoFullName);
   const files = entries.filter((e) => e.type === "blob" && !IGNORED.test(e.path));
+  const paths = files.map((f) => f.path);
+
+  // Schema modules are shared across many routes; read each at most once.
+  const cache = new Map<string, Promise<string | null>>();
+  const read = (path: string) => {
+    if (!cache.has(path)) cache.set(path, readRepoFile(token, repoFullName, path, ref).catch(() => null));
+    return cache.get(path)!;
+  };
 
   const apiRoots = findApiRoots(files);
   if (!apiRoots.length) {
@@ -55,9 +66,9 @@ export async function discoverApi(token: string, repoFullName: string): Promise<
       style: "next-app-router",
       truncated,
       collections: group(
-        await Promise.all(
-          routeHandlers.map((file) => fromRouteHandler(token, repoFullName, file, apiRoots, ref)),
-        ).then((groups) => groups.flat()),
+        (await mapWithConcurrency(routeHandlers, 8, (file) =>
+          fromRouteHandler(file, apiRoots, paths, read),
+        )).flat(),
         apiRoots,
       ),
     };
@@ -96,24 +107,56 @@ function findApiRoots(files: RepoTreeEntry[]): string[] {
 }
 
 async function fromRouteHandler(
-  token: string,
-  repo: string,
   file: RepoTreeEntry,
   roots: string[],
-  ref: string,
+  paths: string[],
+  read: (path: string) => Promise<string | null>,
 ): Promise<DiscoveredRequest[]> {
   const endpoint = endpointFor(file.path.replace(/\/route\.(ts|tsx|js|mjs)$/, ""), roots);
-  const source = await readRepoFile(token, repo, file.path, ref).catch(() => null);
+  const source = await read(file.path);
   const methods = source ? exportedMethods(source) : ["GET" as HttpMethod];
+  const list = methods.length ? methods : (["GET"] as HttpMethod[]);
 
-  return (methods.length ? methods : (["GET"] as HttpMethod[])).map((method) => ({
-    method,
-    path: endpoint,
-    name: nameFor(method, endpoint),
-    sourceFile: file.path,
-    assertions: defaultAssertions(method),
-    body: bodyFor(method),
-  }));
+  return Promise.all(
+    list.map(async (method) => {
+      // Read the handler's own schema so the request arrives ready to send.
+      const shape = source
+        ? await inferShape({ source, filePath: file.path, method, files: paths, read })
+        : { body: null, headers: null, params: null };
+
+      return {
+        method,
+        path: endpoint,
+        name: nameFor(method, endpoint),
+        sourceFile: file.path,
+        assertions: defaultAssertions(method),
+        body: shape.body ?? bodyFor(method),
+        headers: shape.headers,
+        params: shape.params,
+      };
+    }),
+  );
+}
+
+/** Keeps the GitHub API happy while still reading dozens of files quickly. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (cursor < items.length) {
+        const index = cursor++;
+        out[index] = await fn(items[index]);
+      }
+    }),
+  );
+
+  return out;
 }
 
 function fromPlainFile(file: RepoTreeEntry, roots: string[]): DiscoveredRequest {
@@ -126,6 +169,8 @@ function fromPlainFile(file: RepoTreeEntry, roots: string[]): DiscoveredRequest 
     sourceFile: file.path,
     assertions: defaultAssertions("GET"),
     body: null,
+    headers: null,
+    params: null,
   };
 }
 

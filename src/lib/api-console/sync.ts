@@ -60,10 +60,18 @@ export async function syncCollectionsFromRepo(opts: {
       const match = existing.find((e) => e.method === request.method && e.path === request.path);
 
       if (match) {
-        // Only the generated fields are refreshed; assertions and body are the user's.
+        // Assertions and an edited body are the user's; a body that was never
+        // filled in is still ours to improve on the next sync.
+        const untouched = !match.body || match.body.replace(/\s/g, "") === "{}";
         await db.apiRequest.update({
           where: { id: match.id },
-          data: { name: match.name || request.name, position: (i + 1) * RANK_STEP },
+          data: {
+            name: match.name || request.name,
+            position: (i + 1) * RANK_STEP,
+            ...(untouched && request.body ? { body: request.body } : {}),
+            ...(match.headers ? {} : { headers: (request.headers ?? undefined) as never }),
+            ...(match.params ? {} : { params: (request.params ?? undefined) as never }),
+          },
         });
         keptRequestIds.push(match.id);
       } else {
@@ -74,6 +82,8 @@ export async function syncCollectionsFromRepo(opts: {
             method: request.method,
             path: request.path,
             body: request.body,
+            headers: (request.headers ?? undefined) as never,
+            params: (request.params ?? undefined) as never,
             assertions: request.assertions,
             position: (i + 1) * RANK_STEP,
           },
@@ -101,10 +111,19 @@ export async function ensureDefaultEnvironments(projectId: string, appUrl: strin
   const count = await db.apiEnvironment.count({ where: { projectId } });
   if (count > 0) return;
 
+  // Imported requests reference $env.API_TOKEN, so the slot exists from the start.
+  const variables = { API_TOKEN: "", WEBHOOK_SIGNATURE: "" };
+
   await db.apiEnvironment.createMany({
     data: [
-      { projectId, name: "local", baseUrl: "http://localhost:3321", color: "green" },
-      { projectId, name: "staging", baseUrl: appUrl, color: "amber" },
+      {
+        projectId,
+        name: "local",
+        baseUrl: "http://localhost:3321",
+        color: "green",
+        variables,
+      },
+      { projectId, name: "staging", baseUrl: appUrl, color: "amber", variables },
     ],
     skipDuplicates: true,
   });

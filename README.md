@@ -196,6 +196,23 @@ grouped into an **Issues** collection. Pages-router and plain files degrade to o
 `GET` per file. Re-syncing keeps ids, so assertions you wrote survive a deploy,
 and endpoints deleted from the repo disappear from the console.
 
+**Imported requests arrive ready to send.** The sync reads each handler's own
+Zod schema — following the import into `@/lib/validators` if that's where it
+lives — and generates an example body from the *required* fields, which is the
+smallest body that should succeed:
+
+```jsonc
+// POST /api/issues, from issueCreateSchema
+{ "projectId": "string", "title": "string" }
+```
+
+It also picks up query params from `searchParams.get(...)` and adds
+`Authorization: Bearer $env.API_TOKEN` to routes that read one. Where there's no
+schema it falls back to whatever the handler destructures off `req.json()`.
+
+A body you've edited is never overwritten by a later sync; one still sitting at
+`{}` is.
+
 Environments are the deploys you already have, including per-PR previews.
 `$env.NAME` and `{{NAME}}` interpolate into the URL, headers and body.
 
