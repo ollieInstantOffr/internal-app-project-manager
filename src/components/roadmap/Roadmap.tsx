@@ -53,6 +53,7 @@ export function Roadmap({
   const [zoom, setZoom] = useState<Zoom>("quarter");
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [creating, setCreating] = useState<null | "epic" | "milestone">(null);
+  const [editingMilestone, setEditingMilestone] = useState<RoadmapMilestone | null>(null);
   const [share, setShare] = useState<{
     projectKey: string;
     projectName: string;
@@ -60,6 +61,45 @@ export function Roadmap({
     epics: ShareEpic[];
   } | null>(null);
   const [loadingShare, setLoadingShare] = useState(false);
+
+  const setMilestoneStatus = useCallback(
+    async (milestone: RoadmapMilestone, status: MilestoneStatus) => {
+      try {
+        await api.patch(`/api/milestones/${milestone.id}`, { status });
+        router.refresh();
+      } catch (err) {
+        toast(err instanceof ApiError ? err.message : "Couldn't update that milestone");
+      }
+    },
+    [router, toast],
+  );
+
+  /** Deletes straight away and offers it back, rather than asking first. */
+  const deleteMilestone = useCallback(
+    async (milestone: RoadmapMilestone) => {
+      try {
+        await api.del(`/api/milestones/${milestone.id}`);
+        router.refresh();
+        toast(`Deleted "${milestone.name}"`, {
+          label: "Undo",
+          run: async () => {
+            try {
+              await api.post("/api/milestones", {
+                name: milestone.name,
+                date: milestone.date,
+              });
+              router.refresh();
+            } catch {
+              toast("Couldn't restore that milestone");
+            }
+          },
+        });
+      } catch (err) {
+        toast(err instanceof ApiError ? err.message : "Couldn't delete that milestone");
+      }
+    },
+    [router, toast],
+  );
 
   /** The public page is per-project, so sharing always names one. */
   const openShare = useCallback(
@@ -420,7 +460,7 @@ export function Roadmap({
             {milestones.map((m) => (
               <div
                 key={m.id}
-                className="card"
+                className="card milestone-card"
                 style={{ flex: 1, borderRadius: 14, padding: 13, display: "flex", gap: 11 }}
               >
                 <span
@@ -450,10 +490,69 @@ export function Roadmap({
                           : "var(--success)",
                     }}
                   >
-                    {m.derivedStatus === MilestoneStatus.AT_RISK
-                      ? `At risk — ${m.lateEpics} epic${m.lateEpics === 1 ? "" : "s"} land after it`
-                      : "On track"}
+                    {m.derivedStatus === MilestoneStatus.SHIPPED
+                      ? "Shipped"
+                      : m.derivedStatus === MilestoneStatus.AT_RISK
+                        ? `At risk — ${m.lateEpics} epic${m.lateEpics === 1 ? "" : "s"} land after it`
+                        : "On track"}
                   </div>
+                </div>
+
+                <div style={{ marginLeft: "auto" }}>
+                  <Popover
+                    align="right"
+                    width={190}
+                    trigger={({ toggle }) => (
+                      <button
+                        className="milestone-menu"
+                        onClick={toggle}
+                        aria-label={`Actions for ${m.name}`}
+                      >
+                        ⋯
+                      </button>
+                    )}
+                  >
+                    {(close) => (
+                      <>
+                        <button
+                          className="menu-item"
+                          onClick={() => {
+                            setEditingMilestone(m);
+                            close();
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="menu-item"
+                          onClick={() => {
+                            setMilestoneStatus(
+                              m,
+                              m.derivedStatus === MilestoneStatus.SHIPPED
+                                ? MilestoneStatus.ON_TRACK
+                                : MilestoneStatus.SHIPPED,
+                            );
+                            close();
+                          }}
+                        >
+                          {m.derivedStatus === MilestoneStatus.SHIPPED
+                            ? "Reopen"
+                            : "Mark as shipped"}
+                        </button>
+                        <div className="menu-sep" />
+                        <button
+                          className="menu-item"
+                          style={{ color: "var(--danger)" }}
+                          onClick={() => {
+                            deleteMilestone(m);
+                            close();
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </Popover>
                 </div>
               </div>
             ))}
@@ -470,7 +569,13 @@ export function Roadmap({
       </div>
 
       {creating === "epic" && <NewEpicModal onClose={() => setCreating(null)} />}
-      {creating === "milestone" && <NewMilestoneModal onClose={() => setCreating(null)} />}
+      {creating === "milestone" && <MilestoneModal onClose={() => setCreating(null)} />}
+      {editingMilestone && (
+        <MilestoneModal
+          milestone={editingMilestone}
+          onClose={() => setEditingMilestone(null)}
+        />
+      )}
 
       {share && (
         <ShareSheet
@@ -593,26 +698,39 @@ function NewEpicModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function NewMilestoneModal({ onClose }: { onClose: () => void }) {
+function MilestoneModal({
+  milestone,
+  onClose,
+}: {
+  /** Absent when creating; present when editing an existing milestone. */
+  milestone?: RoadmapMilestone;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [date, setDate] = useState("");
+  const editing = !!milestone;
+  const [name, setName] = useState(milestone?.name ?? "");
+  const [date, setDate] = useState(milestone ? milestone.date.slice(0, 10) : "");
   const [busy, setBusy] = useState(false);
 
   return (
-    <Modal title="New milestone" onClose={onClose}>
+    <Modal title={editing ? "Edit milestone" : "New milestone"} onClose={onClose}>
       <form
         style={{ display: "flex", flexDirection: "column", gap: 14 }}
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
           try {
-            await api.post("/api/milestones", { name: name.trim(), date });
+            if (editing) await api.patch(`/api/milestones/${milestone.id}`, { name: name.trim(), date });
+            else await api.post("/api/milestones", { name: name.trim(), date });
             onClose();
             router.refresh();
-          } catch {
-            toast("Couldn't create that milestone");
+          } catch (err) {
+            toast(
+              err instanceof ApiError
+                ? err.message
+                : `Couldn't ${editing ? "save" : "create"} that milestone`,
+            );
             setBusy(false);
           }
         }}
@@ -652,7 +770,7 @@ function NewMilestoneModal({ onClose }: { onClose: () => void }) {
             Cancel
           </button>
           <button className="btn btn-primary grow" disabled={busy || !name.trim() || !date}>
-            {busy ? <span className="spin" /> : "Add milestone"}
+            {busy ? <span className="spin" /> : editing ? "Save milestone" : "Add milestone"}
           </button>
         </div>
       </form>
