@@ -300,6 +300,7 @@ model Issue {
   blocks        IssueLink[]    @relation("blocker")
   blockedBy     IssueLink[]    @relation("blocked")
   apiFailures   ApiRunResult[]
+  fileRefs      IssueFileRef[]
 
   @@unique([projectId, number])
   @@index([key])
@@ -725,5 +726,25 @@ model ApiRunResult {
   createdAt DateTime @default(now())
 
   @@index([runId])
+  @@index([issueId])
+}
+
+// ─────────────────────────────────────────── repo browser
+
+/// A range of lines in a file that an issue is about. The mapping a git host
+/// can't give you: which issues touch this file, and exactly where.
+model IssueFileRef {
+  id        String   @id @default(cuid())
+  repo      String
+  path      String
+  startLine Int?
+  endLine   Int?
+  /// Branch or sha the range was captured against.
+  ref       String?
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([repo, path])
   @@index([issueId])
 }

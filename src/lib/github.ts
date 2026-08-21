@@ -193,3 +193,72 @@ export async function readRepoFile(
   const text = Buffer.from(raw.content, "base64").toString("utf8");
   return text.includes("\u0000") ? null : text;
 }
+
+export type RepoBranch = { name: string; sha: string; isDefault: boolean };
+
+export async function listBranches(
+  token: string,
+  fullName: string,
+  defaultRef?: string,
+): Promise<RepoBranch[]> {
+  const res = await fetch(`${API}/repos/${fullName}/branches?per_page=100`, {
+    headers: headers(token),
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+
+  const raw = (await res.json()) as { name: string; commit: { sha: string } }[];
+  const fallback = defaultRef ?? (await defaultBranch(token, fullName));
+
+  return raw
+    .map((b) => ({ name: b.name, sha: b.commit.sha, isDefault: b.name === fallback }))
+    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.name.localeCompare(b.name));
+}
+
+export type PathCommit = {
+  sha: string;
+  message: string;
+  authorName: string;
+  authorLogin: string | null;
+  authorAvatarHue: number;
+  date: string;
+};
+
+/** Recent commits touching one path — powers "last changed" and ownership. */
+export async function listCommitsForPath(
+  token: string,
+  fullName: string,
+  path: string,
+  ref?: string,
+  limit = 30,
+): Promise<PathCommit[]> {
+  const query = new URLSearchParams({ path, per_page: String(limit) });
+  if (ref) query.set("sha", ref);
+
+  const res = await fetch(`${API}/repos/${fullName}/commits?${query}`, {
+    headers: headers(token),
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+
+  const raw = (await res.json()) as {
+    sha: string;
+    commit: { message: string; author: { name: string; date: string } };
+    author: { login: string } | null;
+  }[];
+
+  return raw.map((c) => ({
+    sha: c.sha,
+    message: c.commit.message.split("\n")[0],
+    authorName: c.commit.author?.name ?? c.author?.login ?? "Unknown",
+    authorLogin: c.author?.login ?? null,
+    authorAvatarHue: hue(c.author?.login ?? c.commit.author?.name ?? ""),
+    date: c.commit.author?.date ?? new Date().toISOString(),
+  }));
+}
+
+function hue(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
+  return h;
+}

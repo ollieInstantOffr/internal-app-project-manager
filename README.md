@@ -144,6 +144,7 @@ than running off the edge.
 | `/onboarding/invite` | — | Skippable bulk invite |
 | `/onboarding/project` | 3c | Pick a repo, import issues, labels become epics |
 | `/home` | 3d | Four counters, project cards, live activity |
+| `/projects/[key]/code` | 6a | Repo browser — file tree, reader, and the issues touching each file |
 | `/projects/[key]/api` | 4a | API console — collections, request/response, assertions |
 | `/projects/[key]/api/runs/[id]` | 4b | Run results, and one click from a failure to an issue |
 | `/projects/[key]/board` | 1e | Kanban, drag between columns, WIP limits, inline compose, bulk bar |
@@ -182,6 +183,28 @@ name — that is how the table above was verified.
 Rules are editable: toggle them off, or add your own trigger→action pair.
 
 ---
+
+## Repo browser
+
+Read-only by design — editing lives in your editor. What the app adds is the
+mapping a git host can't give you: **which issues touch this file**, which epic
+owns the directory, who has been changing it, and which branches and PRs are in
+flight against it.
+
+The tree mirrors a branch (switchable), marks files that have open issues with a
+dot, and `⌘P` filters by path. The reader syntax-highlights the file and shows
+its size, line count and last commit.
+
+**Select lines → open an issue against exactly those lines.** Click a line
+number to anchor, shift-click to extend, then *New issue*. The range is stored
+against the issue, so the sidebar can show `lines 42–48` next to it and the link
+survives the file being edited. A range can also be attached to an existing
+issue rather than creating a new one.
+
+Ownership and last-changed come from the commits touching that path; the owning
+epic is inferred from the issues already mapped into the directory. Trees,
+files and commit lists are cached briefly so browsing doesn't burn GitHub's
+rate limit.
 
 ## API console
 

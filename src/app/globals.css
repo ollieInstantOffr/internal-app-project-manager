@@ -1049,6 +1049,151 @@ input, textarea, select { font: inherit; color: inherit; }
 }
 .run-row[data-failed="true"]:hover { background: oklch(0.31 0.07 25); }
 
+/* ── repo browser ─────────────────────────────────────────── */
+
+.repo-split { min-width: 0; }
+
+.repo-tree-pane {
+  width: 262px;
+  flex: none;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.repo-scrim { display: none; }
+.repo-tree-toggle { display: none; }
+
+.repo-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 0 20px 20px;
+  gap: 14px;
+}
+
+.repo-reader {
+  flex: 1;
+  border-radius: var(--r-lg);
+  background: oklch(0.19 0.01 285);
+  border: 1px solid var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.repo-reader-head {
+  flex: none;
+  padding: 11px 14px;
+  border-bottom: 1px solid oklch(0.28 0.012 285);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.repo-aside {
+  width: 320px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── file tree ────────────────────────────────────────────── */
+
+.tree { display: flex; flex-direction: column; gap: 1px; padding-bottom: 8px; }
+.tree-empty { padding: 16px 9px; font: 400 11.5px/1.6 var(--sans); color: var(--muted); }
+
+.tree-dir,
+.tree-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 9px;
+  width: 100%;
+  text-align: left;
+  font: 500 11.5px var(--sans);
+  color: var(--text-2);
+  min-width: 0;
+}
+.tree-dir[data-top="true"] { font-family: var(--display); font-weight: 600; }
+.tree-dir:hover, .tree-file:hover { background: var(--surface); color: var(--text); }
+
+.tree-file { font-weight: 400; gap: 9px; color: var(--text-3); }
+.tree-file[data-active="true"] { background: oklch(0.3 0.03 128); color: var(--text); }
+
+.tree-caret { font: 400 9px var(--sans); color: var(--muted-2); flex: none; width: 8px; }
+.tree-count { margin-left: auto; font-size: 9.5px; color: var(--faint); flex: none; }
+
+.tree-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger-solid);
+  flex: none;
+}
+.tree-dot[data-active="true"] { background: var(--accent-fg); }
+
+.file-badge {
+  font: 400 10px var(--mono);
+  border-radius: 3px;
+  padding: 0 4px;
+  flex: none;
+  border: 1px solid transparent;
+}
+.file-badge[data-active="true"] {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-color: transparent;
+}
+.badge-blue   { color: oklch(0.7 0.1 230); border-color: oklch(0.38 0.06 230); }
+.badge-amber  { color: var(--amber); border-color: oklch(0.4 0.06 40); }
+.badge-green  { color: var(--success); border-color: oklch(0.4 0.06 150); }
+.badge-violet { color: oklch(0.7 0.13 300); border-color: oklch(0.38 0.06 300); }
+.badge-slate  { color: var(--muted); border-color: var(--line-strong); }
+
+/* ── code reader ──────────────────────────────────────────── */
+
+.code-view { padding: 12px 0; font: 400 11.5px/1.9 var(--mono); }
+
+.code-line { display: flex; }
+.code-line[data-selected="true"] {
+  background: oklch(0.24 0.03 128);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.code-gutter-no {
+  width: 44px;
+  flex: none;
+  text-align: right;
+  padding-right: 14px;
+  color: oklch(0.45 0.012 285);
+  font: inherit;
+  user-select: none;
+}
+.code-gutter-no:hover { color: var(--accent); }
+.code-line[data-selected="true"] .code-gutter-no { color: oklch(0.75 0.03 128); }
+
+.code-text {
+  font: inherit;
+  white-space: pre;
+  padding-right: 20px;
+  min-width: 0;
+}
+
+.hl-comment { color: oklch(0.6 0.012 285); }
+.hl-string  { color: oklch(0.84 0.14 128); }
+.hl-keyword { color: oklch(0.76 0.11 300); }
+.hl-fn      { color: oklch(0.8 0.13 90); }
+.hl-number  { color: oklch(0.8 0.13 40); }
+.hl-type    { color: oklch(0.78 0.1 230); }
+
 /* ── split layouts ────────────────────────────────────────── */
 
 .split { display: flex; flex: 1; min-height: 0; }
@@ -1384,6 +1529,8 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
   }
 
   .console-collections { width: 210px; }
+  .repo-tree-pane { width: 214px; }
+  .repo-aside { width: 260px; }
 
   .queue-pane { width: 340px; }
 
@@ -1490,6 +1637,40 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
 
   .backlog-list { padding: 0 16px; }
   .sprint-panel { padding: 0 16px 16px; }
+
+  /* The tree slides in over the reader; the context panel stacks under it. */
+  .repo-tree-pane {
+    position: absolute;
+    z-index: 40;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 82vw);
+    background: var(--panel);
+    transform: translateX(-102%);
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .repo-split { position: relative; }
+  .repo-split[data-tree-open="true"] .repo-tree-pane { transform: none; }
+
+  .repo-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 39;
+    background: rgba(10, 8, 14, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .repo-split[data-tree-open="true"] .repo-scrim { opacity: 1; pointer-events: auto; }
+
+  .repo-tree-toggle { display: inline-flex; }
+  .repo-body { flex-direction: column; padding: 0 16px 16px; overflow-y: auto; }
+  .repo-reader { min-height: 60vh; }
+  .repo-aside { width: auto; overflow: visible; }
+  .code-view { font-size: 11px; line-height: 1.8; }
+  .code-gutter-no { width: 36px; padding-right: 10px; }
 
   /* The collections list becomes a sheet above the request. */
   .console-split { flex-direction: column; overflow-y: auto; }

@@ -90,6 +90,7 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
                 { slug: "board", label: "Board" },
                 { slug: "backlog", label: "Backlog" },
                 { slug: "epics", label: "Epics" },
+                { slug: "code", label: "Code" },
                 { slug: "api", label: "API console" },
                 { slug: "insights", label: "Insights" },
               ].map((tab) => (
@@ -134,6 +135,26 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
             </div>
           )}
         </>
+      )}
+
+      {pathname.includes("/code") && (
+        <div
+          className="card"
+          style={{
+            marginTop: "auto",
+            borderRadius: 14,
+            background: "var(--surface)",
+            padding: 13,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ font: "600 11.5px var(--display)" }}>Read-only</div>
+          <div style={{ font: "400 10.5px/1.6 var(--sans)", color: "var(--muted)" }}>
+            Mirrors the branch. Edits happen in your editor — this is for context and linking.
+          </div>
+        </div>
       )}
 
       {pathname.includes("/api") && !pathname.startsWith("/settings") && (
