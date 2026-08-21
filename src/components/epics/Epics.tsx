@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/client";
 import { useToast } from "@/components/Toast";
 import { Avatar, Bar, Editable, Empty, Modal, Popover } from "@/components/ui";
 import { NewIssueModal } from "@/components/NewIssueButton";
+import { DateField } from "@/components/DateField";
 import { EpicStatus, IssueStatus } from "@/lib/types";
 import { ACCENT_NAMES, STATUS_LABEL, accent } from "@/lib/constants";
 import type { BoardIssue, BoardProject } from "@/components/board/types";
@@ -185,12 +186,12 @@ export function Epics({
               </div>
 
               <div className="row-flex" style={{ gap: 10, flexWrap: "wrap" }}>
-                <DateField
+                <DateRow
                   label="Start"
                   value={epic.startDate}
                   onChange={(value) => patch(epic, { startDate: value })}
                 />
-                <DateField
+                <DateRow
                   label="Target"
                   value={epic.targetDate}
                   onChange={(value) => patch(epic, { targetDate: value })}
@@ -267,7 +268,7 @@ export function Epics({
   );
 }
 
-function DateField({
+function DateRow({
   label,
   value,
   onChange,
@@ -287,12 +288,14 @@ function DateField({
       }}
     >
       {label}
-      <input
-        type="date"
-        className="input input-sm"
-        style={{ width: 140, height: 28 }}
+      <DateField
+        className="input input-sm date-inline"
+        align="right"
+        stretch={false}
         value={value ? value.slice(0, 10) : ""}
-        onChange={(e) => onChange(e.target.value || null)}
+        onChange={(next) => onChange(next || null)}
+        placeholder="—"
+        ariaLabel={label}
       />
     </label>
   );

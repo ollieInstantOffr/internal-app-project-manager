@@ -199,12 +199,18 @@ export function Popover({
   align = "left",
   placement = "bottom",
   width,
+  panelClass,
+  stretch,
 }: {
   trigger: (props: { open: boolean; toggle: () => void }) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
   placement?: "bottom" | "top";
   width?: number;
+  /** Extra class on the floating panel, for contents that aren't a menu. */
+  panelClass?: string;
+  /** Let the trigger fill its container instead of shrinking to its content. */
+  stretch?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
@@ -285,13 +291,20 @@ export function Popover({
   }, [open, position]);
 
   return (
-    <div ref={anchor} style={{ position: "relative", display: "inline-flex" }}>
+    <div
+      ref={anchor}
+      style={{
+        position: "relative",
+        display: stretch ? "flex" : "inline-flex",
+        ...(stretch ? { width: "100%" } : null),
+      }}
+    >
       {trigger({ open, toggle: () => setOpen((v) => !v) })}
       {open &&
         createPortal(
           <div
             ref={menu}
-            className="menu"
+            className={panelClass ? `menu ${panelClass}` : "menu"}
             style={{
               position: "fixed",
               top: coords?.top ?? -9999,

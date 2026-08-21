@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatEstimate } from "@/lib/tasks/parse";
+import { DateField } from "@/components/DateField";
 
 /** Same handful of dates everywhere a due date can be set. */
 export function dueChoices(now: Date) {
@@ -47,19 +48,21 @@ export function DueMenu({
         </button>
       ))}
       <div className="menu-sep" />
-      <div style={{ padding: "6px 10px" }}>
-        <input
-          type="date"
-          className="input input-sm"
+      <div style={{ padding: "4px 6px" }}>
+        <DateField
           value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter" || !custom) return;
-            const [y, m, d] = custom.split("-").map(Number);
+          onChange={(next) => {
+            setCustom(next);
+            if (!next) return;
+            const [y, m, d] = next.split("-").map(Number);
+            // Due dates land at the end of the day, the way typed dates do.
             onPick(new Date(y, m - 1, d, 23, 59, 59, 999));
             close();
           }}
-          aria-label="Pick a date"
+          className="input input-sm"
+          placeholder="Pick a date…"
+          ariaLabel="Pick a date"
+          clearable={false}
         />
       </div>
       <button

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/client";
 import { useToast } from "@/components/Toast";
 import { Modal, Popover } from "@/components/ui";
+import { DateField } from "@/components/DateField";
 import { useShell } from "@/components/shell/context";
 import { ShareSheet, type ShareEpic, type SharePage } from "./ShareSheet";
 import { accent } from "@/lib/constants";
@@ -556,24 +557,25 @@ function NewEpicModal({ onClose }: { onClose: () => void }) {
             <label className="label" htmlFor="epic-start">
               Start
             </label>
-            <input
+            <DateField
               id="epic-start"
-              className="input"
-              type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={setStartDate}
+              placeholder="No start date"
+              ariaLabel="Start date"
             />
           </div>
           <div className="field grow">
             <label className="label" htmlFor="epic-target">
               Target
             </label>
-            <input
+            <DateField
               id="epic-target"
-              className="input"
-              type="date"
               value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
+              onChange={setTargetDate}
+              placeholder="No target date"
+              ariaLabel="Target date"
+              min={startDate || undefined}
             />
           </div>
         </div>
@@ -633,13 +635,13 @@ function NewMilestoneModal({ onClose }: { onClose: () => void }) {
           <label className="label" htmlFor="ms-date">
             Date
           </label>
-          <input
+          <DateField
             id="ms-date"
-            className="input"
-            type="date"
-            required
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={setDate}
+            placeholder="Pick a date"
+            ariaLabel="Milestone date"
+            clearable={false}
           />
         </div>
         <div style={{ font: "400 10.5px/1.6 var(--sans)", color: "var(--faint)" }}>
