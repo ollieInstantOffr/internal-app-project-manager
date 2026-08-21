@@ -34,16 +34,15 @@ export default function AcceptInvite({
   }
 
   if (!signedInAs) {
+    // Passwordless makes "sign in" and "sign up" the same act, so there's one door.
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-        <Link className="btn btn-primary btn-block" href={`/signup?invite=${token}`}>
-          Create an account
+        <Link className="btn btn-primary btn-block" href={`/login?invite=${token}`}>
+          Continue
         </Link>
-        <Link className="btn btn-outline btn-block" href={`/login?invite=${token}`}>
-          I already have one
-        </Link>
-        <div style={{ font: "400 10.5px var(--sans)", color: "var(--faint)", textAlign: "center" }}>
-          Use {inviteEmail} so the invite matches.
+        <div style={{ font: "400 10.5px/1.6 var(--sans)", color: "var(--faint)", textAlign: "center" }}>
+          Use {inviteEmail} so the invite matches. We&rsquo;ll email you a link — no password
+          needed.
         </div>
       </div>
     );

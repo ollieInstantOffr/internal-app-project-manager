@@ -10,30 +10,6 @@ const SESSION_COOKIE = "arc_session";
 const ORG_COOKIE = "arc_org";
 const SESSION_DAYS = 30;
 
-/* ── passwords ─────────────────────────────────────────────── */
-
-export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16);
-  const derived = crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
-  return `scrypt$16384$8$1$${salt.toString("hex")}$${derived.toString("hex")}`;
-}
-
-export function verifyPassword(password: string, stored: string): boolean {
-  try {
-    const [scheme, N, r, p, saltHex, hashHex] = stored.split("$");
-    if (scheme !== "scrypt") return false;
-    const derived = crypto.scryptSync(password, Buffer.from(saltHex, "hex"), 64, {
-      N: Number(N),
-      r: Number(r),
-      p: Number(p),
-    });
-    const expected = Buffer.from(hashHex, "hex");
-    return derived.length === expected.length && crypto.timingSafeEqual(derived, expected);
-  } catch {
-    return false;
-  }
-}
-
 /* ── tokens ────────────────────────────────────────────────── */
 
 export function randomToken(bytes = 32) {

@@ -1,21 +1,25 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { AuthAside } from "@/components/AuthChrome";
-import LoginForm from "./LoginForm";
+import MagicLinkForm from "@/components/MagicLinkForm";
 
 export const metadata = { title: "Sign in · Arc" };
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; invite?: string; next?: string }>;
 }) {
   if (await getCurrentUser()) redirect("/home");
-  const { error } = await searchParams;
+  const { error, invite, next } = await searchParams;
 
   return (
     <main className="auth">
-      <LoginForm oauthError={error} />
+      <MagicLinkForm
+        mode="signin"
+        oauthError={error}
+        redirectTo={invite ? `/invite/${invite}` : next}
+      />
       <AuthAside />
     </main>
   );

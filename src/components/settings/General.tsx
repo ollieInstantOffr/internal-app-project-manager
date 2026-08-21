@@ -110,20 +110,10 @@ export function General({
             <div>
               <div style={{ font: "600 13px var(--sans)" }}>{profile.name}</div>
               <div style={{ font: "400 11px var(--sans)", color: "var(--muted)" }}>
-                {profile.email}{" "}
-                {profile.verified ? (
-                  <span style={{ color: "var(--success)" }}>· verified</span>
-                ) : (
-                  <button
-                    style={{ color: "var(--accent)" }}
-                    onClick={async () => {
-                      await api.post("/api/auth/resend-verification").catch(() => {});
-                      toast("Verification email sent");
-                    }}
-                  >
-                    · resend verification
-                  </button>
-                )}
+                {profile.email} <span style={{ color: "var(--success)" }}>· verified</span>
+              </div>
+              <div style={{ font: "400 10.5px var(--sans)", color: "var(--faint)", marginTop: 2 }}>
+                Sign-in is passwordless — GitHub, or a link to this address.
               </div>
             </div>
           </div>

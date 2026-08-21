@@ -16,7 +16,6 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   name          String
-  passwordHash  String?
   avatarHue     Int       @default(285)
   githubLogin   String?
   githubId      String?   @unique
@@ -39,7 +38,7 @@ model User {
   sentInvites    Invite[]         @relation("inviter")
   tokens         ApiToken[]
   prefs          NotificationPref?
-  verifications  VerificationToken[]
+  magicLinks     MagicLink[]
 
   @@index([githubLogin])
 }
@@ -56,22 +55,20 @@ model Session {
   @@index([userId])
 }
 
-enum VerificationPurpose {
-  EMAIL_VERIFY
-  PASSWORD_RESET
-}
+/// A single-use sign-in link. `token` holds a SHA-256 hash, never the value
+/// that was emailed, so a database leak can't be used to sign in as anyone.
+model MagicLink {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectTo String?
+  requestIp  String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
 
-model VerificationToken {
-  id        String              @id @default(cuid())
-  token     String              @unique
-  purpose   VerificationPurpose
-  userId    String
-  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime            @default(now())
-
-  @@index([userId, purpose])
+  @@index([userId, createdAt])
 }
 
 // ─────────────────────────────────────────── org

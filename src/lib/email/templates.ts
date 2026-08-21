@@ -1,28 +1,26 @@
 import { shell, card, issueLine, escapeHtml } from "./layout";
 import { appUrl } from "../app-url";
 
-export function verifyEmailTemplate(name: string, token: string) {
+export function magicLinkTemplate(opts: {
+  name: string;
+  token: string;
+  isNew: boolean;
+  minutes: number;
+}) {
+  const url = appUrl(`/auth/verify?token=${opts.token}`);
   return {
-    subject: "Verify your email for Arc",
+    subject: opts.isNew ? "Finish setting up Arc" : "Your Arc sign-in link",
     html: shell({
-      preheader: "One click and your Arc account is live.",
-      heading: `Welcome, ${name.split(" ")[0]}`,
-      body: `<p style="margin:0">Confirm this address and your account is ready. The link works for 24 hours.</p>`,
-      cta: { label: "Verify email", url: appUrl(`/verify-email?token=${token}`) },
-      footnote: "If you didn't create an Arc account, ignore this email.",
-    }),
-  };
-}
-
-export function resetPasswordTemplate(name: string, token: string) {
-  return {
-    subject: "Reset your Arc password",
-    html: shell({
-      preheader: "Choose a new password.",
-      heading: "Reset your password",
-      body: `<p style="margin:0">Hi ${escapeHtml(name.split(" ")[0])} — pick a new password with the link below. It expires in one hour and can be used once.</p>`,
-      cta: { label: "Choose a new password", url: appUrl(`/reset-password?token=${token}`) },
-      footnote: "Didn't ask for this? Your password hasn't changed.",
+      preheader: "One click and you're in. No password to remember.",
+      heading: opts.isNew ? `Welcome, ${opts.name.split(" ")[0]}` : "Sign in to Arc",
+      body: `<p style="margin:0">${
+        opts.isNew
+          ? "Confirm this address and your account is ready."
+          : "Click below and you're signed in."
+      }</p>
+      <p style="margin:12px 0 0">The link works once and expires in ${opts.minutes} minutes.</p>`,
+      cta: { label: opts.isNew ? "Create my account" : "Sign in", url },
+      footnote: "If you didn't ask for this, ignore it — nobody can sign in without the link.",
     }),
   };
 }

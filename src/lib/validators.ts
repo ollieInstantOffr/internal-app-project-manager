@@ -10,15 +10,19 @@ import {
 } from "./types";
 
 export const email = z.string().trim().toLowerCase().email("Enter a valid email address");
-export const password = z.string().min(8, "Use at least 8 characters").max(200);
 
-export const signupSchema = z.object({
-  name: z.string().trim().min(1, "Tell us your name").max(80),
+/** The only way in besides GitHub: an address, and optionally a name for new accounts. */
+export const magicLinkSchema = z.object({
   email,
-  password,
+  name: z.string().trim().min(1).max(80).optional(),
+  redirectTo: z
+    .string()
+    .trim()
+    .max(512)
+    // Relative paths only — an open redirect here would be a phishing vector.
+    .regex(/^\/(?!\/)[^\s]*$/, "Must be a relative path")
+    .optional(),
 });
-
-export const loginSchema = z.object({ email, password: z.string().min(1, "Enter your password") });
 
 export const orgSchema = z.object({
   name: z.string().trim().min(1, "Name your organization").max(80),

@@ -60,7 +60,7 @@ containers get theirs from compose. The app degrades gracefully without the rest
 | Variable | Effect when unset |
 | --- | --- |
 | `APP_URL` | `http://localhost:3321` |
-| `RESEND_API_KEY` | mail is logged instead of sent, nothing fails |
+| `RESEND_API_KEY` | mail is logged, and sign-in links are shown in-browser so you can still get in |
 | `EMAIL_FROM` | falls back to `onboarding@resend.dev` |
 | `GITHUB_CLIENT_ID` / `_SECRET` | GitHub sign-in and repo import are hidden |
 | `GITHUB_WEBHOOK_SECRET` | the webhook returns 503; the in-app simulator still runs every rule |
@@ -74,7 +74,8 @@ containers get theirs from compose. The app degrades gracefully without the rest
 | Route | Design | What it does |
 | --- | --- | --- |
 | `/` | — | Sends you to the app, the next onboarding step, or sign-in |
-| `/login`, `/signup` | 3a | Password or GitHub; split layout |
+| `/login`, `/signup` | 3a | Passwordless: GitHub or a magic link; split layout |
+| `/auth/verify` | — | Burns a sign-in link and starts the session |
 | `/onboarding/organization` | 3b | Name + live slug availability + GitHub connect |
 | `/onboarding/invite` | — | Skippable bulk invite |
 | `/onboarding/project` | 3c | Pick a repo, import issues, labels become epics |
@@ -89,8 +90,8 @@ containers get theirs from compose. The app degrades gracefully without the rest
 | `/settings/integrations` | 3k | GitHub, automation toggles, API tokens, usage |
 | `/insights` | 3l | Velocity, cycle time, review wait, flow, one nudge |
 
-Also `/projects/[key]/epics`, `/projects/new`, `/settings/{general,notifications,usage,danger}`,
-`/invite/[token]`, `/forgot-password`, `/reset-password`, `/verify-email`.
+Also `/projects/[key]/epics`, `/projects/new`, `/settings/{general,notifications,usage,danger}`
+and `/invite/[token]`.
 
 ---
 
@@ -141,8 +142,8 @@ Member (everything else). Enforced server-side on every route, not just in the U
 
 ## Email
 
-Eight templates go out through Resend — verification, password reset, invite,
-mention, assignment, blocking nudge, CI failure, daily digest. All respect
+Seven templates go out through Resend — sign-in link, invite, mention,
+assignment, blocking nudge, CI failure, daily digest. All respect
 per-user preferences in **Settings → Notifications**.
 
 ```bash
@@ -165,18 +166,29 @@ Dockerfile               deps → builder → tools (migrations) / runner (stand
 docker-compose.yml       db + one-shot migrate + web on 3321
 prisma/schema.prisma     28 models — org, projects, epics, sprints, issues,
                          subtasks, git branches/PRs, activity, inbox, rules, tokens
-src/lib/                 db, auth (scrypt + sessions), issues, automation, insights,
+src/lib/                 db, auth (sessions), magic-link, issues, automation, insights,
                          digest, github, mail, validators (zod)
 src/app/api/             route handlers — session or bearer-token auth
 src/app/(app)/           the signed-in shell and its screens
-src/app/(auth)/          login, signup, password reset, verification
+src/app/(auth)/          sign-in and sign-up (both passwordless)
 src/components/          board, backlog, roadmap, issue, mywork, insights, settings
 src/app/globals.css      the design tokens, lifted from the design file
 ```
 
-Passwords are scrypt-hashed; sessions are random tokens stored as SHA-256 hashes
-and invalidated wholesale on password reset. Login is deliberately vague about
-whether an address exists.
+**There are no passwords.** You sign in with GitHub, or with a link emailed to
+your address — the same act whether the account exists yet or not.
+
+Sign-in links are single-use, expire in 15 minutes, and are stored as SHA-256
+hashes, so a database leak can't be replayed into a session. Opening one retires
+any other outstanding links for that account. Requests are rate-limited to 5 per
+address per 15 minutes, `redirectTo` accepts relative paths only (no open
+redirect), and the response is identical for known and unknown addresses so it
+can't be used to enumerate accounts. Sessions are random tokens, also stored
+hashed.
+
+With no `RESEND_API_KEY` set there would be no way in at all, so in that case
+the link is returned to the browser and logged. That path is unreachable the
+moment a key is configured.
 
 ## Scripts
 

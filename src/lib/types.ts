@@ -11,5 +11,4 @@ export {
   RuleTrigger,
   RuleAction,
   MilestoneStatus,
-  VerificationPurpose,
 } from "@/generated/prisma/enums";
