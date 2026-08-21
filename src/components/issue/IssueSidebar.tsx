@@ -158,6 +158,14 @@ export function IssueSidebar({
                 >
                   Backlog
                 </button>
+                {sprints.length === 0 && (
+                  <div
+                    className="menu-label"
+                    style={{ color: "var(--muted-2)", fontSize: 11, lineHeight: 1.5 }}
+                  >
+                    No sprints yet — plan one from the backlog.
+                  </div>
+                )}
                 {sprints.map((s) => (
                   <button
                     key={s.id}
@@ -345,8 +353,10 @@ export function IssueSidebar({
           </div>
         ) : (
           <div className="card-dashed" style={{ borderRadius: 13, padding: 11, fontSize: 10.5, lineHeight: 1.6 }}>
-            No branch yet. Name one <span className="mono">{issue.key.toLowerCase()}</span> and this
-            issue moves itself.
+            No branch yet. Put <span className="mono">{issue.key.toLowerCase()}</span> anywhere in a
+            branch name — e.g.{" "}
+            <span className="mono">feat/{issue.key.toLowerCase()}-…</span> — and this issue moves
+            itself.
           </div>
         )}
 

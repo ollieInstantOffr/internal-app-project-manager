@@ -15,6 +15,7 @@ export type BulkPatch = {
   epicId?: string | null;
   sprintId?: string | null;
   addLabelId?: string;
+  archived?: boolean;
 };
 
 /**
@@ -30,6 +31,7 @@ export function BulkBar({
   onApply,
   onClear,
   onSelectAll,
+  mode = "active",
   hint = "shift-click to extend · esc to clear",
 }: {
   count: number;
@@ -40,6 +42,8 @@ export function BulkBar({
   onApply: (patch: BulkPatch) => void;
   onClear: () => void;
   onSelectAll?: () => void;
+  /** In the archived view the destructive action becomes its opposite. */
+  mode?: "active" | "archived";
   hint?: string;
 }) {
   const { members, user } = useShell();
@@ -248,6 +252,14 @@ export function BulkBar({
             ))
           }
         </Menu>
+      )}
+
+      <span className="sep" />
+
+      {mode === "archived" ? (
+        <button onClick={() => onApply({ archived: false })}>Restore</button>
+      ) : (
+        <button onClick={() => onApply({ archived: true })}>Archive</button>
       )}
 
       <span className="grow" />

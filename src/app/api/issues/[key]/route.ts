@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { handler, json, parseBody, requireApiContext, issueInOrg } from "@/lib/api";
 import { issueUpdateSchema } from "@/lib/validators";
 import { getIssue, updateIssue } from "@/lib/issues";
+import { Role } from "@/lib/types";
 
 type Ctx = { params: Promise<{ key: string }> };
 
@@ -43,17 +44,27 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
   return json({ ok: true, issue });
 });
 
+/**
+ * Archives by default — "e" on the queue has to be undoable. `?permanent=1`
+ * destroys the issue and everything hanging off it, and needs admin rights.
+ */
 export const DELETE = handler(async (req: Request, { params }: Ctx) => {
-  const ctx = await requireApiContext(req);
+  const permanent = new URL(req.url).searchParams.get("permanent") === "1";
+  const ctx = await requireApiContext(req, permanent ? Role.ADMIN : Role.MEMBER);
   const { key } = await params;
   const found = await issueInOrg(ctx.orgId, key);
 
-  // Archive rather than destroy — "e" on the queue should always be undoable.
+  if (permanent) {
+    // Comments, subtasks, links, branches and activity cascade from the schema.
+    await db.issue.delete({ where: { id: found.id } });
+    return json({ ok: true, deleted: "permanent", key: found.key });
+  }
+
   await db.issue.update({ where: { id: found.id }, data: { archivedAt: new Date() } });
   await db.notification.updateMany({
     where: { issueId: found.id, archivedAt: null },
     data: { archivedAt: new Date() },
   });
 
-  return json({ ok: true });
+  return json({ ok: true, deleted: "archived", key: found.key });
 });

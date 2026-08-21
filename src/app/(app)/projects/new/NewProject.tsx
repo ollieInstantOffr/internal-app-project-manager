@@ -52,7 +52,7 @@ export default function NewProject({ githubConnected }: { githubConnected: boole
           importClosed: !!selected && bring.closed,
         },
       );
-      if (res.imported.issues) toast(`Imported ${res.imported.issues} issues`);
+      if (res.imported.issues) toast(`Imported ${res.imported.issues} issue${res.imported.issues === 1 ? "" : "s"}`);
       router.push(`/projects/${res.project.key}/board`);
       router.refresh();
     } catch (err) {

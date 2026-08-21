@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { initials } from "@/lib/format";
 import { accent } from "@/lib/constants";
 
@@ -199,12 +207,61 @@ export function Popover({
   width?: number;
 }) {
   const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const anchor = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+
+  /**
+   * Menus are portalled to <body> and positioned in viewport coordinates. Several
+   * of the places they open from — the issue sidebar, the board columns — are
+   * scroll containers, which would otherwise clip an absolutely-positioned menu
+   * or push it outside its panel.
+   */
+  const position = useCallback(() => {
+    const trigger = anchor.current?.getBoundingClientRect();
+    if (!trigger) return;
+
+    const gap = 6;
+    const margin = 8;
+    // offsetWidth/Height are layout values, unaffected by the entry animation's
+    // transform — a getBoundingClientRect() here measures the menu mid-slide.
+    const w = menu.current?.offsetWidth ?? width ?? 200;
+    const h = menu.current?.offsetHeight ?? 0;
+
+    let left = align === "right" ? trigger.right - w : trigger.left;
+    // Keep it on screen whichever edge it would have run past.
+    left = Math.min(left, window.innerWidth - w - margin);
+    left = Math.max(margin, left);
+
+    const below = trigger.bottom + gap;
+    const above = trigger.top - gap - h;
+    const fitsBelow = below + h <= window.innerHeight - margin;
+    let top = placement === "top" || !fitsBelow ? above : below;
+    top = Math.max(margin, Math.min(top, window.innerHeight - h - margin));
+
+    setCoords({ top, left });
+  }, [align, placement, width]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    position();
+
+    // The first pass runs before the menu has been measured, so its height is 0
+    // and an upward-opening menu lands wrong. Re-position once it has real
+    // dimensions, and again whenever its contents change size.
+    const el = menu.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => position());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [open, position]);
 
   useEffect(() => {
     if (!open) return;
+
     const onDown = (e: MouseEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (!anchor.current?.contains(target) && !menu.current?.contains(target)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -212,31 +269,41 @@ export function Popover({
         setOpen(false);
       }
     };
+    // Any scroll or resize invalidates the anchor position.
+    const reflow = () => position();
+
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", reflow);
+    window.addEventListener("scroll", reflow, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", reflow);
+      window.removeEventListener("scroll", reflow, true);
     };
-  }, [open]);
+  }, [open, position]);
 
   return (
-    <div ref={wrap} style={{ position: "relative", display: "inline-flex" }}>
+    <div ref={anchor} style={{ position: "relative", display: "inline-flex" }}>
       {trigger({ open, toggle: () => setOpen((v) => !v) })}
-      {open && (
-        <div
-          className="menu"
-          style={{
-            ...(placement === "top"
-              ? { bottom: "calc(100% + 8px)" }
-              : { top: "calc(100% + 6px)" }),
-            [align]: 0,
-            width,
-          }}
-        >
-          {children(() => setOpen(false))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={menu}
+            className="menu"
+            style={{
+              position: "fixed",
+              top: coords?.top ?? -9999,
+              left: coords?.left ?? -9999,
+              width,
+              visibility: coords ? "visible" : "hidden",
+            }}
+          >
+            {children(() => setOpen(false))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

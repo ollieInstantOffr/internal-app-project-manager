@@ -50,22 +50,42 @@ export function Backlog({
   const [dragging, setDragging] = useState<BoardIssue | null>(null);
   const [modalSeed, setModalSeed] = useState<{ epicId: string | null } | null>(null);
   const [hideDone, setHideDone] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archived, setArchived] = useState<BoardIssue[]>([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
   const lastClicked = useRef<string | null>(null);
 
   useEffect(() => setIssues(initialIssues), [initialIssues]);
+
+  // Archived issues live outside the normal query, so they're fetched on demand.
+  useEffect(() => {
+    if (!showArchived) return;
+    let cancelled = false;
+    setLoadingArchived(true);
+    api
+      .get<{ issues: BoardIssue[] }>(`/api/issues?project=${project.key}&archived=1`)
+      .then((res) => !cancelled && setArchived(res.issues))
+      .catch(() => !cancelled && toast("Couldn't load archived issues"))
+      .finally(() => !cancelled && setLoadingArchived(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [showArchived, project.key, initialIssues, toast]);
 
   const planning =
     sprints.find((s) => s.status === SprintStatus.PLANNED) ??
     sprints.find((s) => s.status === SprintStatus.ACTIVE) ??
     null;
 
+  const source = showArchived ? archived : issues;
+
   const backlog = useMemo(
     () =>
-      issues
-        .filter((i) => i.sprint?.id !== planning?.id)
+      (showArchived ? archived : issues)
+        .filter((i) => !planning || i.sprint?.id !== planning.id)
         .filter((i) => (hideDone ? i.status !== IssueStatus.DONE : true))
         .sort((a, b) => a.rank - b.rank),
-    [issues, planning, hideDone],
+    [issues, archived, showArchived, planning, hideDone],
   );
 
   const inSprint = useMemo(
@@ -103,7 +123,7 @@ export function Backlog({
 
   const orderedVisible = groups.flatMap((g) => (collapsed.includes(g.id) ? [] : g.issues));
 
-  const selectedIssues = issues.filter((i) => selected.includes(i.id));
+  const selectedIssues = source.filter((i) => selected.includes(i.id));
   const selectedPoints = selectedIssues.reduce((n, i) => n + (i.estimate ?? 0), 0);
 
   const backlogPoints = backlog.reduce((n, i) => n + (i.estimate ?? 0), 0);
@@ -152,6 +172,7 @@ export function Backlog({
     setSelected([]);
     try {
       await api.post("/api/issues/bulk", { issueIds: ids, patch });
+      if (showArchived) setArchived((prev) => prev.filter((i) => !ids.includes(i.id)));
       router.refresh();
       toast(`${ids.length} issue${ids.length === 1 ? "" : "s"} updated`, {
         label: "Undo",
@@ -253,7 +274,8 @@ export function Backlog({
         <div>
           <h1 className="panel-title panel-title-sm">Backlog</h1>
           <div className="panel-sub">
-            {backlog.length} issues · {backlogPoints} points
+            {backlog.length} issue{backlog.length === 1 ? "" : "s"} · {backlogPoints} point
+            {backlogPoints === 1 ? "" : "s"}
             {unestimated > 0 && (
               <span style={{ color: "var(--muted-2)" }}> · unestimated {unestimated}</span>
             )}
@@ -292,6 +314,22 @@ export function Backlog({
           {hideDone ? "Hide done" : "Showing done"}
         </button>
 
+        <button
+          className="btn btn-ghost"
+          data-active={showArchived}
+          style={
+            showArchived
+              ? { background: "var(--white)", color: "var(--white-fg)", fontWeight: 600 }
+              : undefined
+          }
+          onClick={() => {
+            setShowArchived((v) => !v);
+            setSelected([]);
+          }}
+        >
+          {showArchived ? "Viewing archived" : "Archived"}
+        </button>
+
         <button className="btn btn-primary" onClick={() => setModalSeed({ epicId: null })}>
           New issue
         </button>
@@ -316,7 +354,9 @@ export function Backlog({
             onOpen={(key) => router.push(`/issues/${key}`)}
             onNewInGroup={(epicId) => setModalSeed({ epicId })}
             groupBy={groupBy}
-            totalIssues={issues.length}
+            totalIssues={source.length}
+            emptyTitle={showArchived ? "Nothing archived" : undefined}
+            loading={loadingArchived}
             bulk={
               <BulkBar
                 count={selected.length}
@@ -327,7 +367,14 @@ export function Backlog({
                 onApply={applyBulk}
                 onClear={() => setSelected([])}
                 onSelectAll={() => setSelected(orderedVisible.map((i) => i.id))}
-                hint={planning ? `drag onto ${planning.name} to plan it` : "shift-click to extend"}
+                mode={showArchived ? "archived" : "active"}
+                hint={
+                  showArchived
+                    ? "restore puts them back on the board"
+                    : planning
+                      ? `drag onto ${planning.name} to plan it`
+                      : "shift-click to extend"
+                }
               />
             }
           />
@@ -389,7 +436,11 @@ function BacklogList({
   groupBy,
   bulk,
   totalIssues,
+  emptyTitle,
+  loading,
 }: {
+  emptyTitle?: string;
+  loading?: boolean;
   groups: { id: string; label: string; issues: BoardIssue[] }[];
   totalIssues: number;
   collapsed: string[];
@@ -467,9 +518,11 @@ function BacklogList({
           );
         })}
 
-        {groups.every((g) => g.issues.length === 0) && (
+        {loading && <div className="empty">Loading…</div>}
+
+        {!loading && groups.every((g) => g.issues.length === 0) && (
           <Empty
-            title={totalIssues === 0 ? "No issues yet" : "Backlog is empty"}
+            title={emptyTitle ?? (totalIssues === 0 ? "No issues yet" : "Backlog is empty")}
             hint={
               totalIssues === 0
                 ? "Create one from the board or with New issue — a title is all it needs."
@@ -642,7 +695,7 @@ function SprintPanel({
 
         <div style={{ font: "400 10.5px var(--sans)", color: over ? "var(--danger)" : "var(--muted)" }}>
           {over
-            ? `${points - sprint.capacity} points over capacity`
+            ? `${points - sprint.capacity} point${points - sprint.capacity === 1 ? "" : "s"} over capacity`
             : "Capacity from last 3 sprints' velocity"}
         </div>
       </div>

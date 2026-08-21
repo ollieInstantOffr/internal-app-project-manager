@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { useToast } from "@/components/Toast";
-import { Editable, Popover } from "@/components/ui";
+import { Editable, Modal, Popover } from "@/components/ui";
+import { useShell } from "@/components/shell/context";
+import { Role } from "@/lib/types";
 import { IssueStatus } from "@/lib/types";
 import { STATUS_LABEL, STATUS_ORDER, accent } from "@/lib/constants";
 import { Subtasks, type Subtask } from "./Subtasks";
@@ -44,7 +46,39 @@ export function IssueDetail({
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const { role } = useShell();
   const [local, setLocal] = useState(issue);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const isAdmin = role === Role.OWNER || role === Role.ADMIN;
+
+  async function archive() {
+    try {
+      await api.del(`/api/issues/${issue.key}`);
+      toast(`${issue.key} archived`, {
+        label: "Undo",
+        run: async () => {
+          await api.patch(`/api/issues/${issue.key}`, { archived: false }).catch(() => {});
+          router.refresh();
+        },
+      });
+      router.push(`/projects/${issue.key.split("-")[0]}/board`);
+      router.refresh();
+    } catch {
+      toast("Couldn't archive that issue");
+    }
+  }
+
+  async function destroy() {
+    try {
+      await api.del(`/api/issues/${issue.key}?permanent=1`);
+      setConfirmDelete(false);
+      toast(`${issue.key} deleted`);
+      router.push(`/projects/${issue.key.split("-")[0]}/board`);
+      router.refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't delete that issue");
+    }
+  }
 
   useEffect(() => setLocal(issue), [issue]);
 
@@ -137,6 +171,69 @@ export function IssueDetail({
             <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>
               ↑↓ next issue
             </span>
+
+            <Popover
+              align="right"
+              width={220}
+              trigger={({ toggle }) => (
+                <button className="btn btn-ghost" onClick={toggle} aria-label="Issue actions">
+                  ⋯
+                </button>
+              )}
+            >
+              {(close) => (
+                <>
+                  <button
+                    className="menu-item"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(window.location.href);
+                      toast("Link copied");
+                      close();
+                    }}
+                  >
+                    Copy link
+                  </button>
+                  <button
+                    className="menu-item"
+                    onClick={() => {
+                      const branch =
+                        local.branches[0]?.name ?? `feat/${local.key.toLowerCase()}`;
+                      navigator.clipboard?.writeText(branch);
+                      toast(`Copied ${branch}`);
+                      close();
+                    }}
+                  >
+                    Copy branch name
+                  </button>
+
+                  <div className="menu-sep" />
+
+                  <button
+                    className="menu-item"
+                    onClick={() => {
+                      close();
+                      archive();
+                    }}
+                  >
+                    Archive issue
+                  </button>
+                  <button
+                    className="menu-item"
+                    style={{ color: isAdmin ? "var(--danger)" : "var(--faintest)" }}
+                    disabled={!isAdmin}
+                    title={isAdmin ? undefined : "Only an admin can delete permanently"}
+                    onClick={() => {
+                      if (!isAdmin) return;
+                      close();
+                      setConfirmDelete(true);
+                    }}
+                  >
+                    Delete permanently
+                  </button>
+                </>
+              )}
+            </Popover>
+
             <button className="btn btn-ghost" onClick={() => router.back()}>
               Close esc
             </button>
@@ -275,6 +372,32 @@ export function IssueDetail({
           }}
         />
       </div>
+
+      {confirmDelete && (
+        <Modal title={`Delete ${local.key}?`} onClose={() => setConfirmDelete(false)}>
+          <p style={{ font: "400 12.5px/1.7 var(--sans)", color: "var(--muted)", margin: 0 }}>
+            This removes the issue and everything attached to it — comments, subtasks, git links
+            and history. It cannot be undone.
+          </p>
+          <p style={{ font: "400 12px/1.7 var(--sans)", color: "var(--text-3)", margin: 0 }}>
+            Archiving hides it from every board and list but keeps all of that, and can be undone.
+          </p>
+          <div style={{ display: "flex", gap: 9 }}>
+            <button
+              className="btn btn-outline grow"
+              onClick={() => {
+                setConfirmDelete(false);
+                archive();
+              }}
+            >
+              Archive instead
+            </button>
+            <button className="btn btn-danger grow" onClick={destroy}>
+              Delete permanently
+            </button>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }
