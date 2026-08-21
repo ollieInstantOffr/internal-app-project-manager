@@ -14,7 +14,10 @@ export const requestCreateSchema = z.object({
   assertions: z.string().max(10_000).optional().nullable(),
 });
 
-export const requestUpdateSchema = requestCreateSchema.partial().omit({ collectionId: true });
+export const requestUpdateSchema = requestCreateSchema
+  .partial()
+  .omit({ collectionId: true })
+  .extend({ moveToCollectionId: z.string().min(1).optional() });
 
 export const sendSchema = z.object({
   environmentId: z.string().min(1),

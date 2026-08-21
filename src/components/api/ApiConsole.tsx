@@ -14,6 +14,7 @@ import {
   statusClass,
   type ConsoleState,
   type ConsoleRequest,
+  type ConsoleEnvironment,
   type Method,
   type SendResult,
 } from "./types";
@@ -51,6 +52,10 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
   const [running, setRunning] = useState(false);
   const [importing, setImporting] = useState(false);
   const [newEnv, setNewEnv] = useState(false);
+  const [managingEnvs, setManagingEnvs] = useState(false);
+  const [renaming, setRenaming] = useState<
+    { kind: "collection" | "request"; id: string; name: string } | null
+  >(null);
 
   useEffect(() => setState(initial), [initial]);
 
@@ -173,20 +178,106 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
         found: boolean;
         collections: number;
         requests: number;
-        style: string;
+        created: number;
+        bodiesFilled: number;
+        detailsFilled: number;
+        removed: number;
         message?: string;
       }>(`/api/api-console/${state.project.key}/import`);
-      toast(
-        res.found
-          ? `Imported ${res.requests} request${res.requests === 1 ? "" : "s"} from ${res.collections} folder${res.collections === 1 ? "" : "s"}`
-          : (res.message ?? "No /api folder found"),
-      );
+
+      if (!res.found) {
+        toast(res.message ?? "No /api folder found");
+      } else {
+        // Say what actually changed, not just what was scanned.
+        const parts = [
+          res.created ? `${res.created} new` : null,
+          res.bodiesFilled ? `${res.bodiesFilled} bod${res.bodiesFilled === 1 ? "y" : "ies"} filled` : null,
+          res.detailsFilled ? `${res.detailsFilled} updated` : null,
+          res.removed ? `${res.removed} removed` : null,
+        ].filter(Boolean);
+        toast(
+          parts.length
+            ? `Synced ${res.requests} requests · ${parts.join(" · ")}`
+            : `Synced ${res.requests} requests · already up to date`,
+        );
+      }
       await refresh();
       router.refresh();
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Couldn't read the repository");
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function renameCollection(id: string, name: string) {
+    try {
+      await api.patch(`/api/api-console/collections/${id}`, { name });
+      await refresh();
+      toast("Collection renamed");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't rename that");
+    }
+  }
+
+  async function deleteCollection(collection: { id: string; name: string; source: string }) {
+    const label =
+      collection.source === "REPO"
+        ? `Delete "${collection.name}"? It came from the repo, so a later sync will bring it back.`
+        : `Delete "${collection.name}" and everything in it?`;
+    if (!window.confirm(label)) return;
+
+    try {
+      const res = await api.del<{ requests: number }>(
+        `/api/api-console/collections/${collection.id}`,
+      );
+      if (activeId && !allRequests.some((r) => r.id === activeId)) setActiveId(null);
+      await refresh();
+      toast(`Deleted ${collection.name} · ${res.requests} request${res.requests === 1 ? "" : "s"}`);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't delete that");
+    }
+  }
+
+  async function renameRequest(id: string, name: string) {
+    try {
+      await api.patch(`/api/api-console/requests/${id}`, { name });
+      await refresh();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't rename that");
+    }
+  }
+
+  async function duplicateRequest(request: ConsoleRequest) {
+    const collection = state.collections.find((c) => c.requests.some((r) => r.id === request.id));
+    if (!collection) return;
+    try {
+      const res = await api.post<{ request: ConsoleRequest }>("/api/api-console/requests", {
+        collectionId: collection.id,
+        name: `${request.name} copy`,
+        method: request.method,
+        path: request.path,
+        body: request.body,
+        headers: request.headers,
+        params: request.params,
+        assertions: request.assertions,
+      });
+      await refresh();
+      setActiveId(res.request.id);
+    } catch {
+      toast("Couldn't duplicate that request");
+    }
+  }
+
+  async function deleteRequest(request: ConsoleRequest) {
+    if (!window.confirm(`Delete "${request.name}"?`)) return;
+    try {
+      await api.del(`/api/api-console/requests/${request.id}`);
+      if (activeId === request.id) setActiveId(null);
+      await refresh();
+      toast("Request deleted");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't delete that");
     }
   }
 
@@ -244,6 +335,13 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
           onSelect={(r) => setActiveId(r.id)}
           onNewRequest={addRequest}
           onRunCollection={(c) => runAll(c.id)}
+          onRenameCollection={(c) =>
+            setRenaming({ kind: "collection", id: c.id, name: c.name })
+          }
+          onDeleteCollection={deleteCollection}
+          onRenameRequest={(r) => setRenaming({ kind: "request", id: r.id, name: r.name })}
+          onDuplicateRequest={duplicateRequest}
+          onDeleteRequest={deleteRequest}
           lastRun={state.latestRun}
           running={running}
         />
@@ -326,6 +424,15 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
                     </button>
                   ))}
                   <div className="menu-sep" />
+                  <button
+                    className="menu-item"
+                    onClick={() => {
+                      setManagingEnvs(true);
+                      close();
+                    }}
+                  >
+                    Manage environments
+                  </button>
                   <button
                     className="menu-item"
                     onClick={() => {
@@ -665,6 +772,34 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
         </div>
       </div>
 
+      {managingEnvs && (
+        <ManageEnvironmentsModal
+          environments={state.environments}
+          activeId={envId}
+          onClose={() => setManagingEnvs(false)}
+          onChanged={async (removedId) => {
+            await refresh();
+            if (removedId && removedId === envId) {
+              const next = state.environments.find((e) => e.id !== removedId);
+              setEnvId(next?.id ?? "");
+            }
+          }}
+        />
+      )}
+
+      {renaming && (
+        <RenameModal
+          label={renaming.kind === "collection" ? "Rename collection" : "Rename request"}
+          initial={renaming.name}
+          onClose={() => setRenaming(null)}
+          onSubmit={async (name) => {
+            if (renaming.kind === "collection") await renameCollection(renaming.id, name);
+            else await renameRequest(renaming.id, name);
+            setRenaming(null);
+          }}
+        />
+      )}
+
       {newEnv && (
         <NewEnvironmentModal
           projectId={state.project.id}
@@ -772,6 +907,217 @@ function NewEnvironmentModal({
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function RenameModal({
+  label,
+  initial,
+  onClose,
+  onSubmit,
+}: {
+  label: string;
+  initial: string;
+  onClose: () => void;
+  onSubmit: (name: string) => void | Promise<void>;
+}) {
+  const [name, setName] = useState(initial);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Modal title={label} onClose={onClose}>
+      <form
+        style={{ display: "flex", flexDirection: "column", gap: 14 }}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          await onSubmit(name.trim());
+          setBusy(false);
+        }}
+      >
+        <div className="field">
+          <label className="label" htmlFor="rename-input">
+            Name
+          </label>
+          <input
+            id="rename-input"
+            className="input"
+            autoFocus
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 9 }}>
+          <button type="button" className="btn btn-outline grow" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn-primary grow" disabled={busy || !name.trim()}>
+            {busy ? <span className="spin" /> : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Edit base URLs and the variables that `$env.NAME` resolves against. */
+function ManageEnvironmentsModal({
+  environments,
+  activeId,
+  onClose,
+  onChanged,
+}: {
+  environments: ConsoleEnvironment[];
+  activeId: string;
+  onClose: () => void;
+  onChanged: (removedId?: string) => void | Promise<void>;
+}) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{ name: string; baseUrl: string; variables: string }>({
+    name: "",
+    baseUrl: "",
+    variables: "{}",
+  });
+  const [busy, setBusy] = useState(false);
+
+  function startEdit(env: ConsoleEnvironment) {
+    setEditing(env.id);
+    setDraft({
+      name: env.name,
+      baseUrl: env.baseUrl,
+      variables: JSON.stringify(env.variables ?? {}, null, 2),
+    });
+  }
+
+  async function save(id: string) {
+    setBusy(true);
+    try {
+      await api.patch(`/api/api-console/environments/${id}`, {
+        name: draft.name.trim(),
+        baseUrl: draft.baseUrl.trim(),
+        variables: safeParse(draft.variables) ?? {},
+      });
+      setEditing(null);
+      await onChanged();
+      toast("Environment saved");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't save that environment");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(env: ConsoleEnvironment) {
+    if (!window.confirm(`Delete the "${env.name}" environment?`)) return;
+    try {
+      await api.del(`/api/api-console/environments/${env.id}`);
+      await onChanged(env.id);
+      toast(`Deleted ${env.name}`);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Couldn't delete that environment");
+    }
+  }
+
+  return (
+    <Modal title="Environments" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {environments.length === 0 && (
+          <div style={{ color: "var(--muted)", fontSize: 12 }}>No environments yet.</div>
+        )}
+
+        {environments.map((env) =>
+          editing === env.id ? (
+            <div
+              key={env.id}
+              className="card"
+              style={{ background: "var(--raised)", display: "flex", flexDirection: "column", gap: 11 }}
+            >
+              <div className="field">
+                <label className="label" htmlFor={`env-name-${env.id}`}>
+                  Name
+                </label>
+                <input
+                  id={`env-name-${env.id}`}
+                  className="input input-sm"
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor={`env-url-${env.id}`}>
+                  Base URL
+                </label>
+                <input
+                  id={`env-url-${env.id}`}
+                  className="input input-sm mono"
+                  style={{ fontSize: 12 }}
+                  value={draft.baseUrl}
+                  onChange={(e) => setDraft({ ...draft, baseUrl: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor={`env-vars-${env.id}`}>
+                  Variables · used as $env.NAME
+                </label>
+                <textarea
+                  id={`env-vars-${env.id}`}
+                  className="textarea mono"
+                  style={{ minHeight: 80, fontSize: 12 }}
+                  value={draft.variables}
+                  onChange={(e) => setDraft({ ...draft, variables: e.target.value })}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 9 }}>
+                <button className="btn btn-outline grow" onClick={() => setEditing(null)}>
+                  Cancel
+                </button>
+                <button className="btn btn-primary grow" onClick={() => save(env.id)} disabled={busy}>
+                  {busy ? <span className="spin" /> : "Save"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div key={env.id} className="row-flex card-tight" style={{ background: "var(--raised)" }}>
+              <span
+                className="dot"
+                style={{ background: env.kind === "PR_PREVIEW" ? "var(--accent)" : "var(--amber)" }}
+              />
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div style={{ font: "500 12px var(--sans)" }}>
+                  {env.name}
+                  {env.id === activeId && (
+                    <span style={{ color: "var(--muted-2)", fontWeight: 400 }}> · in use</span>
+                  )}
+                </div>
+                <div className="mono truncate" style={{ fontSize: 10, color: "var(--muted-2)" }}>
+                  {env.baseUrl}
+                  {env.variables && Object.keys(env.variables).length
+                    ? ` · ${Object.keys(env.variables).length} vars`
+                    : ""}
+                </div>
+              </div>
+              <button className="btn btn-quiet btn-sm" onClick={() => startEdit(env)}>
+                Edit
+              </button>
+              <button
+                className="btn btn-quiet btn-sm"
+                style={{ color: "var(--danger)" }}
+                onClick={() => remove(env)}
+              >
+                Delete
+              </button>
+            </div>
+          ),
+        )}
+      </div>
+
+      <div style={{ font: "400 10.5px/1.6 var(--sans)", color: "var(--faint)" }}>
+        Variables are substituted into the URL, headers and body as{" "}
+        <span className="mono">$env.NAME</span>.
+      </div>
     </Modal>
   );
 }

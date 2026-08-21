@@ -891,6 +891,30 @@ input, textarea, select { font: inherit; color: inherit; }
 }
 .folder-row:hover { color: var(--text); }
 
+.tree-row { display: flex; align-items: center; gap: 2px; }
+.tree-row > .folder-row,
+.tree-row > .request-row { flex: 1; min-width: 0; }
+
+.row-more {
+  width: 22px;
+  height: 24px;
+  border-radius: 7px;
+  flex: none;
+  color: var(--muted-2);
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.tree-row:hover .row-more,
+.row-more:focus-visible { opacity: 1; }
+.row-more:hover { background: var(--hover); color: var(--text); }
+
+/* Touch has no hover, so the affordance is always visible there. */
+@media (pointer: coarse) {
+  .row-more { opacity: 1; }
+}
+
 .url-bar {
   flex: 1;
   height: 44px;

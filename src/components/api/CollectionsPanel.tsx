@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Popover } from "@/components/ui";
 import type { ConsoleCollection, ConsoleRequest } from "./types";
 
 export function CollectionsPanel({
@@ -10,6 +11,11 @@ export function CollectionsPanel({
   onSelect,
   onNewRequest,
   onRunCollection,
+  onRenameCollection,
+  onDeleteCollection,
+  onRenameRequest,
+  onDuplicateRequest,
+  onDeleteRequest,
   lastRun,
   running,
 }: {
@@ -19,6 +25,11 @@ export function CollectionsPanel({
   onSelect: (request: ConsoleRequest) => void;
   onNewRequest: (collectionId: string) => void;
   onRunCollection: (collection: ConsoleCollection) => void;
+  onRenameCollection: (collection: ConsoleCollection) => void;
+  onDeleteCollection: (collection: ConsoleCollection) => void;
+  onRenameRequest: (request: ConsoleRequest) => void;
+  onDuplicateRequest: (request: ConsoleRequest) => void;
+  onDeleteRequest: (request: ConsoleRequest) => void;
   lastRun: {
     passed: number;
     failed: number;
@@ -85,57 +96,165 @@ export function CollectionsPanel({
           const isCollapsed = collapsed.includes(collection.id);
           return (
             <div key={collection.id}>
-              <button
-                className="folder-row"
-                onClick={() =>
-                  setCollapsed((prev) =>
-                    prev.includes(collection.id)
-                      ? prev.filter((x) => x !== collection.id)
-                      : [...prev, collection.id],
-                  )
-                }
-              >
-                <span style={{ font: "400 9px var(--sans)", color: "var(--muted-2)" }}>
-                  {isCollapsed ? "▸" : "▾"}
-                </span>
-                {collection.name}
-                <span
-                  className="mono"
-                  style={{ marginLeft: "auto", fontSize: 9.5, color: "var(--faint)" }}
+              <div className="tree-row">
+                <button
+                  className="folder-row"
+                  onClick={() =>
+                    setCollapsed((prev) =>
+                      prev.includes(collection.id)
+                        ? prev.filter((x) => x !== collection.id)
+                        : [...prev, collection.id],
+                    )
+                  }
                 >
-                  {collection.requests.length}
-                </span>
-              </button>
+                  <span style={{ font: "400 9px var(--sans)", color: "var(--muted-2)" }}>
+                    {isCollapsed ? "▸" : "▾"}
+                  </span>
+                  <span className="truncate">{collection.name}</span>
+                  <span
+                    className="mono"
+                    style={{ marginLeft: "auto", fontSize: 9.5, color: "var(--faint)" }}
+                  >
+                    {collection.requests.length}
+                  </span>
+                </button>
+
+                <Popover
+                  align="right"
+                  width={210}
+                  trigger={({ toggle }) => (
+                    <button
+                      className="row-more"
+                      onClick={toggle}
+                      aria-label={`Manage ${collection.name}`}
+                    >
+                      ⋯
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      <button
+                        className="menu-item"
+                        onClick={() => {
+                          onNewRequest(collection.id);
+                          close();
+                        }}
+                      >
+                        New request
+                      </button>
+                      <button
+                        className="menu-item"
+                        onClick={() => {
+                          onRenameCollection(collection);
+                          close();
+                        }}
+                      >
+                        Rename collection
+                      </button>
+                      <button
+                        className="menu-item"
+                        onClick={() => {
+                          onRunCollection(collection);
+                          close();
+                        }}
+                      >
+                        Run all
+                      </button>
+                      <div className="menu-sep" />
+                      <button
+                        className="menu-item"
+                        style={{ color: "var(--danger)" }}
+                        onClick={() => {
+                          onDeleteCollection(collection);
+                          close();
+                        }}
+                      >
+                        Delete collection
+                      </button>
+                    </>
+                  )}
+                </Popover>
+              </div>
 
               {!isCollapsed && (
                 <>
                   {collection.requests.map((request) => (
-                    <button
-                      key={request.id}
-                      className="request-row"
-                      data-active={request.id === activeId}
-                      onClick={() => onSelect(request)}
-                      title={`${request.method} ${request.path}`}
-                    >
-                      <span className={`method-badge method-${request.method}`}>
-                        {request.method === "DELETE" ? "DEL" : request.method}
-                      </span>
-                      <span className="truncate" style={{ flex: 1 }}>
-                        {request.name}
-                      </span>
-                      {request.failing && (
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: "var(--danger-solid)",
-                            flex: "none",
-                          }}
-                          title="Failed on the last run"
-                        />
-                      )}
-                    </button>
+                    <div className="tree-row" key={request.id}>
+                      <button
+                        className="request-row"
+                        data-active={request.id === activeId}
+                        onClick={() => onSelect(request)}
+                        title={`${request.method} ${request.path}`}
+                      >
+                        <span className={`method-badge method-${request.method}`}>
+                          {request.method === "DELETE" ? "DEL" : request.method}
+                        </span>
+                        <span className="truncate" style={{ flex: 1 }}>
+                          {request.name}
+                        </span>
+                        {request.failing && (
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              background: "var(--danger-solid)",
+                              flex: "none",
+                            }}
+                            title="Failed on the last run"
+                          />
+                        )}
+                      </button>
+
+                      <Popover
+                        align="right"
+                        width={200}
+                        trigger={({ toggle }) => (
+                          <button
+                            className="row-more"
+                            onClick={toggle}
+                            aria-label={`Manage ${request.name}`}
+                          >
+                            ⋯
+                          </button>
+                        )}
+                      >
+                        {(close) => (
+                          <>
+                            <button
+                              className="menu-item"
+                              onClick={() => {
+                                onRenameRequest(request);
+                                close();
+                              }}
+                            >
+                              Rename
+                            </button>
+                            <button
+                              className="menu-item"
+                              onClick={() => {
+                                onDuplicateRequest(request);
+                                close();
+                              }}
+                            >
+                              Duplicate
+                            </button>
+                            <div className="menu-sep" />
+                            <button
+                              className="menu-item"
+                              style={{ color: "var(--danger)" }}
+                              onClick={() => {
+                                onDeleteRequest(request);
+                                close();
+                              }}
+                            >
+                              Delete request
+                            </button>
+                          </>
+                        )}
+                      </Popover>
+                    </div>
                   ))}
                   <button
                     onClick={() => onNewRequest(collection.id)}

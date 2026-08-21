@@ -10,6 +10,11 @@ export type SyncOutcome = {
   apiRoots: string[];
   collections: number;
   requests: number;
+  /** What actually changed, so the toast can say something useful. */
+  created: number;
+  bodiesFilled: number;
+  detailsFilled: number;
+  removed: number;
   truncated: boolean;
 };
 
@@ -32,6 +37,10 @@ export async function syncCollectionsFromRepo(opts: {
     apiRoots: discovery.apiRoots,
     collections: 0,
     requests: 0,
+    created: 0,
+    bodiesFilled: 0,
+    detailsFilled: 0,
+    removed: 0,
     truncated: discovery.truncated,
   };
   if (!discovery.found) return outcome;
@@ -60,19 +69,32 @@ export async function syncCollectionsFromRepo(opts: {
       const match = existing.find((e) => e.method === request.method && e.path === request.path);
 
       if (match) {
-        // Assertions and an edited body are the user's; a body that was never
-        // filled in is still ours to improve on the next sync.
-        const untouched = !match.body || match.body.replace(/\s/g, "") === "{}";
+        // Assertions and an edited body belong to whoever wrote them. Anything
+        // still empty is ours to fill in — that's what makes re-syncing useful
+        // after the generator improves.
+        const bodyEmpty = isEmptyBody(match.body);
+        const headersEmpty = isEmptyMap(match.headers);
+        const paramsEmpty = isEmptyMap(match.params);
+
+        const fillBody = bodyEmpty && !!request.body;
+        const fillHeaders = headersEmpty && !!request.headers;
+        const fillParams = paramsEmpty && !!request.params;
+        const fillAssertions = !match.assertions?.trim() && !!request.assertions;
+
         await db.apiRequest.update({
           where: { id: match.id },
           data: {
             name: match.name || request.name,
             position: (i + 1) * RANK_STEP,
-            ...(untouched && request.body ? { body: request.body } : {}),
-            ...(match.headers ? {} : { headers: (request.headers ?? undefined) as never }),
-            ...(match.params ? {} : { params: (request.params ?? undefined) as never }),
+            ...(fillBody ? { body: request.body } : {}),
+            ...(fillHeaders ? { headers: (request.headers ?? undefined) as never } : {}),
+            ...(fillParams ? { params: (request.params ?? undefined) as never } : {}),
+            ...(fillAssertions ? { assertions: request.assertions } : {}),
           },
         });
+
+        if (fillBody) outcome.bodiesFilled += 1;
+        if (fillHeaders || fillParams || fillAssertions) outcome.detailsFilled += 1;
         keptRequestIds.push(match.id);
       } else {
         const created = await db.apiRequest.create({
@@ -89,21 +111,40 @@ export async function syncCollectionsFromRepo(opts: {
           },
         });
         keptRequestIds.push(created.id);
+        outcome.created += 1;
       }
       outcome.requests += 1;
     }
 
-    // Endpoints deleted from the repo shouldn't linger in the console.
-    await db.apiRequest.deleteMany({
-      where: { collectionId: collection.id, id: { notIn: keptRequestIds } },
+    // Endpoints deleted from the repo shouldn't linger in the console. Anything
+    // added by hand to a repo folder is left alone.
+    const { count } = await db.apiRequest.deleteMany({
+      where: {
+        collectionId: collection.id,
+        id: { notIn: keptRequestIds },
+        collection: { source: "REPO" },
+      },
     });
+    outcome.removed += count;
   }
 
-  await db.apiCollection.deleteMany({
+  const { count: droppedCollections } = await db.apiCollection.deleteMany({
     where: { projectId: opts.projectId, source: "REPO", id: { notIn: keptCollectionIds } },
   });
+  outcome.removed += droppedCollections;
 
   return outcome;
+}
+
+function isEmptyBody(body: string | null) {
+  if (!body) return true;
+  const compact = body.replace(/\s/g, "");
+  return compact === "" || compact === "{}" || compact === "null";
+}
+
+function isEmptyMap(value: unknown) {
+  if (value === null || value === undefined) return true;
+  return typeof value === "object" && Object.keys(value as object).length === 0;
 }
 
 /** Every project starts with somewhere to point requests at. */

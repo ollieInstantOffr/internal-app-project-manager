@@ -18,6 +18,14 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
   if (!existing) return fail(404, "Request not found");
 
   const body = await parseBody(req, requestUpdateSchema);
+
+  if (body.moveToCollectionId) {
+    const target = await db.apiCollection.findFirst({
+      where: { id: body.moveToCollectionId, project: { orgId: ctx.orgId } },
+    });
+    if (!target) return fail(404, "Target collection not found");
+  }
+
   const request = await db.apiRequest.update({
     where: { id },
     data: {
@@ -28,6 +36,7 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
       ...(body.headers !== undefined ? { headers: (body.headers ?? undefined) as never } : {}),
       ...(body.params !== undefined ? { params: (body.params ?? undefined) as never } : {}),
       ...(body.assertions !== undefined ? { assertions: body.assertions } : {}),
+      ...(body.moveToCollectionId ? { collectionId: body.moveToCollectionId } : {}),
     },
   });
 
