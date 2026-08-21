@@ -229,9 +229,19 @@ smallest body that should succeed:
 { "projectId": "string", "title": "string" }
 ```
 
+Routes that validate by hand work too — no schema library required. Given the
+common shape:
+
+```ts
+const body = await req.json().catch(() => null);
+const name = typeof body?.name === "string" ? body.name : "";
+```
+
+it finds the variable bound to `req.json()`, collects every field read off it,
+and takes the type from the `typeof` guard or an `Array.isArray` check.
+
 It also picks up query params from `searchParams.get(...)` and adds
-`Authorization: Bearer $env.API_TOKEN` to routes that read one. Where there's no
-schema it falls back to whatever the handler destructures off `req.json()`.
+`Authorization: Bearer $env.API_TOKEN` to routes that read one.
 
 **Re-syncing fills gaps rather than starting over.** A body you've edited is
 never touched; one still empty — `null`, `{}` or whitespace — gets the generated
@@ -243,7 +253,8 @@ collections, or delete either. Renaming a repo-derived collection detaches it
 from its folder, so a later sync recreates the folder rather than reclaiming
 your version. Deleting one warns you it will come back on the next sync.
 Environments can be edited or deleted too, including the variables that
-`$env.NAME` resolves against.
+`$env.NAME` resolves against. Deletes happen immediately and offer an **Undo**
+in the toast — no browser dialogs anywhere.
 
 Environments are the deploys you already have, including per-PR previews.
 `$env.NAME` and `{{NAME}}` interpolate into the URL, headers and body.

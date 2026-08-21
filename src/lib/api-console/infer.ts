@@ -61,10 +61,11 @@ async function inferBody(
   opts: { source: string; filePath: string; files: string[]; read: FileReader },
 ): Promise<string | null> {
   const schemaName =
-    // parseBody(req, someSchema) — the shape this app uses
+    // parseBody(req, someSchema)
     /parseBody\s*\(\s*[\w.]+\s*,\s*([A-Za-z_$][\w$]*)/.exec(scope)?.[1] ??
-    // someSchema.parse(body) / .safeParse(await req.json())
-    /\b([A-Za-z_$][\w$]*(?:Schema|schema))\s*\.\s*(?:safeParse|parse)\s*\(/.exec(scope)?.[1] ??
+    // anything.parse(body) / .safeParse(...) — the name needn't end in "Schema";
+    // it only counts if it resolves to a zod expression below.
+    /\b([A-Za-z_$][\w$]*)\s*\.\s*(?:safeParse|parse)\s*\(/.exec(scope)?.[1] ??
     null;
 
   if (schemaName) {
@@ -90,21 +91,105 @@ async function inferBody(
     if (value && typeof value === "object") return JSON.stringify(value, null, 2);
   }
 
-  // No schema — fall back to whatever the handler destructures off the JSON body.
-  const destructured =
-    /const\s*\{([^}]+)\}\s*=\s*(?:await\s+)?(?:req|request)\s*\.\s*json\(\)/.exec(scope) ??
-    /const\s*\{([^}]+)\}\s*=\s*await\s+parseBody/.exec(scope);
-  if (destructured) {
-    const keys = destructured[1]
-      .split(",")
-      .map((k) => k.split(":")[0].trim())
-      .filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));
-    if (keys.length) {
-      return JSON.stringify(Object.fromEntries(keys.map((k) => [k, ""])), null, 2);
+  // No schema at all — read the fields straight off how the handler uses the
+  // parsed JSON. Plenty of routes validate by hand and never declare a shape.
+  const fromUsage = inferFromJsonUsage(scope);
+  if (fromUsage) return fromUsage;
+
+  return null;
+}
+
+/**
+ * Handles the common hand-rolled shape:
+ *
+ *   const body = await req.json().catch(() => null);
+ *   const name = typeof body?.name === "string" ? body.name.trim() : "";
+ *
+ * Finds the variable bound to `req.json()`, collects every field read off it,
+ * and takes the type from the `typeof` guard where there is one.
+ */
+function inferFromJsonUsage(scope: string): string | null {
+  const vars = new Set<string>();
+
+  for (const match of scope.matchAll(
+    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(?:await\s+)?(?:req|request)\s*\.\s*json\s*\(/g,
+  )) {
+    vars.add(match[1]);
+  }
+
+  // `const { a, b } = await req.json()` — destructured straight away.
+  const fields = new Map<string, unknown>();
+  for (const match of scope.matchAll(
+    /(?:const|let|var)\s*\{([^}]+)\}\s*=\s*(?:await\s+)?(?:req|request)\s*\.\s*json\s*\(/g,
+  )) {
+    for (const key of splitKeys(match[1])) fields.set(key, "");
+  }
+
+  for (const name of vars) {
+    const ident = escape(name);
+
+    // body.field / body?.field — but not body.json(), which is a call.
+    for (const match of scope.matchAll(
+      new RegExp(`\\b${ident}\\s*\\??\\.\\s*([A-Za-z_$][\\w$]*)\\s*(?!\\()`, "g"),
+    )) {
+      fields.set(match[1], "");
+    }
+    // body["field"]
+    for (const match of scope.matchAll(
+      new RegExp(`\\b${ident}\\s*\\??\\[\\s*["'\`]([^"'\`]+)["'\`]\\s*\\]`, "g"),
+    )) {
+      fields.set(match[1], "");
+    }
+    // const { a, b } = body
+    for (const match of scope.matchAll(
+      new RegExp(`(?:const|let|var)\\s*\\{([^}]+)\\}\\s*=\\s*${ident}\\b`, "g"),
+    )) {
+      for (const key of splitKeys(match[1])) fields.set(key, "");
+    }
+
+    // typeof body?.field === "string" tells us the type outright.
+    for (const match of scope.matchAll(
+      new RegExp(
+        `typeof\\s+${ident}\\s*\\??\\.\\s*([A-Za-z_$][\\w$]*)\\s*===\\s*["'\`](\\w+)["'\`]`,
+        "g",
+      ),
+    )) {
+      fields.set(match[1], match[2] === "number" ? 0 : match[2] === "boolean" ? false : "");
+    }
+    // Array.isArray(body?.field)
+    for (const match of scope.matchAll(
+      new RegExp(`Array\\.isArray\\(\\s*${ident}\\s*\\??\\.\\s*([A-Za-z_$][\\w$]*)`, "g"),
+    )) {
+      fields.set(match[1], []);
     }
   }
 
-  return null;
+  if (fields.size === 0) return null;
+
+  const shaped = Object.fromEntries(
+    [...fields.entries()].map(([key, value]) => [key, value === "" ? hintFor(key) : value]),
+  );
+  return JSON.stringify(shaped, null, 2);
+}
+
+function splitKeys(source: string) {
+  return source
+    .split(",")
+    .map((k) => k.split(":")[0].replace(/\.\.\./, "").trim())
+    .filter((k) => /^[A-Za-z_$][\w$]*$/.test(k));
+}
+
+function hintFor(key: string): unknown {
+  const k = key.toLowerCase();
+  if (k.includes("email")) return "user@example.com";
+  if (k.endsWith("url") || k.includes("link")) return "https://example.com";
+  if (k.includes("count") || k.includes("qty") || k.includes("limit")) return 0;
+  if (k.startsWith("is") || k.startsWith("has") || k.includes("enabled")) return false;
+  return "";
+}
+
+function escape(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** Follows the import that a schema name came from, if it isn't local. */

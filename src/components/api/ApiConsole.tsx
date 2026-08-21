@@ -14,6 +14,7 @@ import {
   statusClass,
   type ConsoleState,
   type ConsoleRequest,
+  type ConsoleCollection,
   type ConsoleEnvironment,
   type Method,
   type SendResult,
@@ -220,20 +221,55 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
     }
   }
 
-  async function deleteCollection(collection: { id: string; name: string; source: string }) {
-    const label =
-      collection.source === "REPO"
-        ? `Delete "${collection.name}"? It came from the repo, so a later sync will bring it back.`
-        : `Delete "${collection.name}" and everything in it?`;
-    if (!window.confirm(label)) return;
+  async function deleteCollection(collection: ConsoleCollection) {
+    // Delete straight away and offer it back, rather than interrupting with a
+    // browser dialog. Everything needed to rebuild it is captured first.
+    const snapshot = {
+      name: collection.name,
+      requests: collection.requests.map((r) => ({
+        name: r.name,
+        method: r.method,
+        path: r.path,
+        body: r.body,
+        headers: r.headers,
+        params: r.params,
+        assertions: r.assertions,
+      })),
+    };
 
     try {
-      const res = await api.del<{ requests: number }>(
+      const res = await api.del<{ requests: number; returnsOnSync: boolean }>(
         `/api/api-console/collections/${collection.id}`,
       );
-      if (activeId && !allRequests.some((r) => r.id === activeId)) setActiveId(null);
+      if (activeId && collection.requests.some((r) => r.id === activeId)) setActiveId(null);
       await refresh();
-      toast(`Deleted ${collection.name} · ${res.requests} request${res.requests === 1 ? "" : "s"}`);
+
+      toast(
+        `Deleted ${collection.name} · ${res.requests} request${res.requests === 1 ? "" : "s"}${
+          res.returnsOnSync ? " · returns on next sync" : ""
+        }`,
+        {
+          label: "Undo",
+          run: async () => {
+            try {
+              const created = await api.post<{ collection: { id: string } }>(
+                "/api/api-console/collections",
+                { projectId: state.project.id, name: snapshot.name },
+              );
+              for (const request of snapshot.requests) {
+                await api.post("/api/api-console/requests", {
+                  collectionId: created.collection.id,
+                  ...request,
+                });
+              }
+              await refresh();
+              toast(`${snapshot.name} restored`);
+            } catch {
+              toast("Couldn't restore that collection");
+            }
+          },
+        },
+      );
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Couldn't delete that");
     }
@@ -270,12 +306,35 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
   }
 
   async function deleteRequest(request: ConsoleRequest) {
-    if (!window.confirm(`Delete "${request.name}"?`)) return;
+    const collection = state.collections.find((c) => c.requests.some((r) => r.id === request.id));
+    if (!collection) return;
+
     try {
       await api.del(`/api/api-console/requests/${request.id}`);
       if (activeId === request.id) setActiveId(null);
       await refresh();
-      toast("Request deleted");
+
+      toast(`Deleted ${request.name}`, {
+        label: "Undo",
+        run: async () => {
+          try {
+            const res = await api.post<{ request: ConsoleRequest }>("/api/api-console/requests", {
+              collectionId: collection.id,
+              name: request.name,
+              method: request.method,
+              path: request.path,
+              body: request.body,
+              headers: request.headers,
+              params: request.params,
+              assertions: request.assertions,
+            });
+            await refresh();
+            setActiveId(res.request.id);
+          } catch {
+            toast("Couldn't restore that request");
+          }
+        },
+      });
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Couldn't delete that");
     }
@@ -776,6 +835,7 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
         <ManageEnvironmentsModal
           environments={state.environments}
           activeId={envId}
+          projectId={state.project.id}
           onClose={() => setManagingEnvs(false)}
           onChanged={async (removedId) => {
             await refresh();
@@ -966,11 +1026,13 @@ function RenameModal({
 function ManageEnvironmentsModal({
   environments,
   activeId,
+  projectId,
   onClose,
   onChanged,
 }: {
   environments: ConsoleEnvironment[];
   activeId: string;
+  projectId: string;
   onClose: () => void;
   onChanged: (removedId?: string) => void | Promise<void>;
 }) {
@@ -1011,11 +1073,30 @@ function ManageEnvironmentsModal({
   }
 
   async function remove(env: ConsoleEnvironment) {
-    if (!window.confirm(`Delete the "${env.name}" environment?`)) return;
     try {
       await api.del(`/api/api-console/environments/${env.id}`);
       await onChanged(env.id);
-      toast(`Deleted ${env.name}`);
+
+      toast(`Deleted ${env.name}`, {
+        label: "Undo",
+        run: async () => {
+          try {
+            await api.post("/api/api-console/environments", {
+              projectId,
+              name: env.name,
+              baseUrl: env.baseUrl,
+              kind: env.kind,
+              prNumber: env.prNumber,
+              color: env.color,
+              variables: env.variables,
+            });
+            await onChanged();
+            toast(`${env.name} restored`);
+          } catch {
+            toast("Couldn't restore that environment");
+          }
+        },
+      });
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Couldn't delete that environment");
     }
