@@ -38,6 +38,10 @@ model User {
   sentInvites    Invite[]         @relation("inviter")
   tokens         ApiToken[]
   apiRuns        ApiRun[]
+  taskLists      TaskList[]
+  tasks          Task[]             @relation("taskOwner")
+  delegatedTasks Task[]             @relation("taskDelegator")
+  focusSessions  FocusSession[]
   prefs          NotificationPref?
   magicLinks     MagicLink[]
 
@@ -98,6 +102,7 @@ model Organization {
   integrations Integration[]
   rules        AutomationRule[]
   tokens       ApiToken[]
+  tasks        Task[]
 }
 
 model Membership {
@@ -301,6 +306,7 @@ model Issue {
   blockedBy     IssueLink[]    @relation("blocked")
   apiFailures   ApiRunResult[]
   fileRefs      IssueFileRef[]
+  taskRefs      Task[]         @relation("taskContext")
 
   @@unique([projectId, number])
   @@index([key])
@@ -767,4 +773,115 @@ model IssueFileRef {
 
   @@index([repo, path])
   @@index([issueId])
+}
+
+// ─────────────────────────────────────────── tasks
+//
+// Deliberately not issues: private by default, no repo link, no points, no
+// board column, and never counted toward velocity. Delegation is the one
+// social part — a sent task lands on the recipient's Tasks page and nowhere
+// else.
+
+model TaskList {
+  id        String   @id @default(cuid())
+  name      String
+  color     String   @default("lime")
+  position  Float    @default(0)
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  tasks Task[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+}
+
+/// Where a delegated task stands. NONE means nobody sent it — it's just yours.
+enum DelegationStatus {
+  NONE
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  title           String
+  note            String?
+  status          TaskStatus @default(OPEN)
+  dueDate         DateTime?
+  estimateMinutes Int?
+  /// Hidden from Next up until this passes.
+  snoozedUntil    DateTime?
+  position        Float      @default(0)
+  completedAt     DateTime?
+
+  /// Whose Tasks page it lives on.
+  ownerId String
+  owner   User      @relation("taskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  listId  String?
+  list    TaskList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+
+  delegatedById    String?
+  delegatedBy      User?            @relation("taskDelegator", fields: [delegatedById], references: [id], onDelete: SetNull)
+  delegationStatus DelegationStatus @default(NONE)
+  delegationNote   String?
+  declineReason    String?
+  /// A counter-offer from the recipient, awaiting the sender's agreement.
+  proposedDate     DateTime?
+  canRenegotiate   Boolean          @default(true)
+  delegatedAt      DateTime?
+  respondedAt      DateTime?
+  nudgedAt         DateTime?
+
+  /// Context only — changing the task never changes the issue.
+  issueId String?
+  issue   Issue?  @relation("taskContext", fields: [issueId], references: [id], onDelete: SetNull)
+  /// Set when the task was promoted onto a board and closed.
+  convertedIssueId String?
+
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subtasks TaskSubtask[]
+  focus    FocusSession[]
+
+  @@index([ownerId, status])
+  @@index([delegatedById])
+  @@index([orgId])
+}
+
+model TaskSubtask {
+  id       String  @id @default(cuid())
+  title    String
+  done     Boolean @default(false)
+  position Float   @default(0)
+  taskId   String
+  task     Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+/// Time spent heads-down. Rolls up into "Focus this week" and nothing else.
+model FocusSession {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId    String?
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  plannedMinutes Int  @default(45)
+  minutes   Int       @default(0)
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  @@index([userId, startedAt])
 }

@@ -10,6 +10,13 @@ export type ShellProject = {
   color: string;
 };
 
+export type ShellList = {
+  id: string;
+  name: string;
+  color: string;
+  count: number;
+};
+
 export type ShellMember = {
   id: string;
   name: string;
@@ -25,6 +32,8 @@ export type ShellData = {
   projects: ShellProject[];
   members: ShellMember[];
   inboxCount: number;
+  taskCount: number;
+  taskLists: ShellList[];
 };
 
 const Ctx = createContext<ShellData | null>(null);

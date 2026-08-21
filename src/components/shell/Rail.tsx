@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useShell } from "./context";
 import { Avatar, ProjectDot } from "@/components/ui";
 import { shortName } from "@/lib/format";
@@ -33,10 +33,12 @@ const SETTINGS_NAV = [
 ];
 
 export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
-  const { org, user, projects, inboxCount } = useShell();
+  const { org, user, projects, inboxCount, taskCount, taskLists } = useShell();
   const pathname = usePathname();
+  const activeList = useSearchParams().get("list");
 
   const inSettings = pathname.startsWith("/settings");
+  const inTasks = pathname.startsWith("/tasks");
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
   const activeProject = projectMatch
     ? projects.find((p) => p.key.toLowerCase() === projectMatch[1].toLowerCase())
@@ -93,6 +95,13 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
               active={pathname.startsWith("/my-work")}
               badge={inboxCount || undefined}
             />
+            <RailLink
+              href="/tasks"
+              label="Tasks"
+              active={inTasks}
+              badge={taskCount || undefined}
+              accentBadge
+            />
             <RailLink href="/roadmap" label="Roadmap" active={pathname.startsWith("/roadmap")} />
             <RailLink
               href="/insights"
@@ -101,7 +110,31 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
             />
           </div>
 
-          {activeProject ? (
+          {inTasks ? (
+            <div className="rail-group">
+              <div className="eyebrow rail-heading">Lists</div>
+              {taskLists.map((list) => (
+                <Link
+                  key={list.id}
+                  href={`/tasks?list=${list.id}`}
+                  className="rail-item"
+                  data-active={activeList === list.id}
+                  style={{ padding: "7px 11px" }}
+                >
+                  <ProjectDot color={`var(--list-${list.color})`} size={8} />
+                  <span className="truncate">{list.name}</span>
+                  <span className="mono rail-count">{list.count}</span>
+                </Link>
+              ))}
+              <Link
+                href="/tasks?new-list=1"
+                className="rail-item"
+                style={{ color: "var(--muted-2)", fontSize: 12 }}
+              >
+                + New list
+              </Link>
+            </div>
+          ) : activeProject ? (
             <>
               <div className="rail-group">
                 <div className="eyebrow rail-heading truncate">{activeProject.name}</div>
@@ -270,17 +303,23 @@ function RailLink({
   label,
   active,
   badge,
+  accentBadge,
 }: {
   href: string;
   label: string;
   active: boolean;
   badge?: number;
+  accentBadge?: boolean;
 }) {
   return (
     <Link href={href} className="rail-item" data-active={active}>
       <span className="rail-glyph" />
       {label}
-      {badge ? <span className="rail-badge">{badge}</span> : null}
+      {badge ? (
+        <span className="rail-badge" data-accent={accentBadge || undefined}>
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }

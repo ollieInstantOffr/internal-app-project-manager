@@ -120,6 +120,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     });
     out.push({
       kind: "action",
+      id: "tasks",
+      label: "Go to Tasks",
+      hint: "G T",
+      run: () => router.push("/tasks"),
+    });
+    out.push({
+      kind: "action",
       id: "roadmap",
       label: "Go to Roadmap",
       hint: "G R",

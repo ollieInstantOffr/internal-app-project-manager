@@ -58,6 +58,7 @@ export function AppShell({ data, children }: { data: ShellData; children: React.
           h: "/home",
           w: "/my-work",
           i: "/my-work",
+          t: "/tasks",
           r: "/roadmap",
           n: "/insights",
           s: "/settings/general",

@@ -11,4 +11,6 @@ export {
   RuleTrigger,
   RuleAction,
   MilestoneStatus,
+  TaskStatus,
+  DelegationStatus,
 } from "@/generated/prisma/enums";

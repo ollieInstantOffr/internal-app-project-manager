@@ -186,3 +186,65 @@ export const profileSchema = z.object({
 });
 
 export type SprintStatusType = SprintStatus;
+
+/* ── Tasks ───────────────────────────────────────────────────────────────── */
+
+export const LIST_COLORS = ["lime", "blue", "amber", "violet", "red", "slate"] as const;
+
+export const taskListSchema = z.object({
+  name: z.string().trim().min(1, "Name your list").max(40),
+  color: z.enum(LIST_COLORS).default("lime"),
+});
+
+export const taskCreateSchema = z.object({
+  /** Raw composer text — `@name` delegates, `tue` sets a date, `~1h` estimates. */
+  input: z.string().trim().min(1, "Give the task a title").max(300),
+  listId: z.string().optional().nullable(),
+  note: z.string().trim().max(2000).optional().nullable(),
+  /** Set by the delegation composer, which resolves the person itself. */
+  delegateToId: z.string().optional().nullable(),
+  dueDate: z.coerce.date().optional().nullable(),
+  estimateMinutes: z.number().int().min(5).max(60 * 24).optional().nullable(),
+  issueKey: z.string().trim().max(24).optional().nullable(),
+  canRenegotiate: z.boolean().optional(),
+});
+
+export const taskUpdateSchema = z.object({
+  title: z.string().trim().min(1).max(300).optional(),
+  note: z.string().trim().max(2000).optional().nullable(),
+  listId: z.string().optional().nullable(),
+  dueDate: z.coerce.date().optional().nullable(),
+  estimateMinutes: z.number().int().min(5).max(60 * 24).optional().nullable(),
+  status: z.enum(["OPEN", "DONE"]).optional(),
+  /** Hides the task from Next up until the given moment. */
+  snoozedUntil: z.coerce.date().optional().nullable(),
+  position: z.number().optional(),
+});
+
+export const taskRespondSchema = z.object({
+  action: z.enum(["accept", "decline", "propose"]),
+  reason: z.string().trim().max(500).optional().nullable(),
+  proposedDate: z.coerce.date().optional().nullable(),
+});
+
+export const taskSubtaskCreateSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+});
+
+export const taskSubtaskUpdateSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  done: z.boolean().optional(),
+});
+
+export const convertTaskSchema = z.object({
+  projectId: z.string().min(1, "Pick a project"),
+});
+
+export const focusStartSchema = z.object({
+  taskId: z.string().optional().nullable(),
+  plannedMinutes: z.number().int().min(5).max(240).default(45),
+});
+
+export const focusEndSchema = z.object({
+  minutes: z.number().int().min(0).max(600),
+});
