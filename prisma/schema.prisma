@@ -1,0 +1,585 @@
+// Arc — git-native project management
+// Hierarchy: Organization → Project → Epic → Issue → Subtask
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────── identity
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String?
+  avatarHue     Int       @default(285)
+  githubLogin   String?
+  githubId      String?   @unique
+  /// OAuth token used to list repos and import issues. Encrypt at rest in production.
+  githubToken   String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions       Session[]
+  memberships    Membership[]
+  teamMembers    TeamMember[]
+  assignedIssues Issue[]          @relation("assignee")
+  createdIssues  Issue[]          @relation("creator")
+  subtasks       Subtask[]
+  comments       Comment[]
+  activities     Activity[]
+  watches        Watcher[]
+  notifications  Notification[]
+  sentInvites    Invite[]         @relation("inviter")
+  tokens         ApiToken[]
+  prefs          NotificationPref?
+  verifications  VerificationToken[]
+
+  @@index([githubLogin])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+model VerificationToken {
+  id        String              @id @default(cuid())
+  token     String              @unique
+  purpose   VerificationPurpose
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  @@index([userId, purpose])
+}
+
+// ─────────────────────────────────────────── org
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  epicCounter  Int      @default(0)
+  githubOrg    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  members      Membership[]
+  teams        Team[]
+  projects     Project[]
+  invites      Invite[]
+  milestones   Milestone[]
+  activities   Activity[]
+  integrations Integration[]
+  rules        AutomationRule[]
+  tokens       ApiToken[]
+}
+
+model Membership {
+  id        String       @id @default(cuid())
+  role      Role         @default(MEMBER)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+}
+
+model Team {
+  id      String       @id @default(cuid())
+  name    String
+  orgId   String
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members TeamMember[]
+
+  @@unique([orgId, name])
+}
+
+model TeamMember {
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+}
+
+model Invite {
+  id         String       @id @default(cuid())
+  email      String
+  role       Role         @default(MEMBER)
+  token      String       @unique
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  invitedById String?
+  invitedBy  User?        @relation("inviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@unique([orgId, email])
+  @@index([orgId])
+}
+
+// ─────────────────────────────────────────── projects
+
+model Project {
+  id           String       @id @default(cuid())
+  name         String
+  key          String
+  color        String       @default("lime")
+  repoFullName String?
+  issueCounter Int          @default(0)
+  archived     Boolean      @default(false)
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  issues  Issue[]
+  epics   Epic[]
+  sprints Sprint[]
+  labels  Label[]
+
+  @@unique([orgId, key])
+  @@index([orgId])
+}
+
+enum EpicStatus {
+  PLANNED
+  IN_PROGRESS
+  DONE
+}
+
+model Epic {
+  id          String     @id @default(cuid())
+  key         String
+  name        String
+  description String?
+  color       String     @default("lime")
+  status      EpicStatus @default(PLANNED)
+  startDate   DateTime?
+  targetDate  DateTime?
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  issues Issue[]
+
+  @@unique([projectId, key])
+  @@index([projectId])
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+model Sprint {
+  id              String       @id @default(cuid())
+  name            String
+  number          Int
+  status          SprintStatus @default(PLANNED)
+  startDate       DateTime
+  endDate         DateTime
+  capacity        Int          @default(40)
+  committedPoints Int          @default(0)
+  completedAt     DateTime?
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+
+  issues Issue[]
+
+  @@unique([projectId, number])
+  @@index([projectId])
+}
+
+model Label {
+  id        String  @id @default(cuid())
+  name      String
+  color     String  @default("slate")
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  issues IssueLabel[]
+
+  @@unique([projectId, name])
+}
+
+enum IssueStatus {
+  TRIAGE
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum Priority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  number      Int
+  key         String
+  title       String
+  description String?
+  status      IssueStatus @default(TRIAGE)
+  priority    Priority    @default(NONE)
+  estimate    Int?
+  rank        Float       @default(0)
+  dueDate     DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  archivedAt  DateTime?
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  epicId String?
+  epic   Epic?   @relation(fields: [epicId], references: [id], onDelete: SetNull)
+
+  sprintId String?
+  sprint   Sprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
+  assigneeId String?
+  assignee   User?   @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?   @relation("creator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  labels        IssueLabel[]
+  subtasks      Subtask[]
+  comments      Comment[]
+  activities    Activity[]
+  watchers      Watcher[]
+  notifications Notification[]
+  branches      GitBranch[]
+  pullRequests  PullRequest[]
+  blocks        IssueLink[]    @relation("blocker")
+  blockedBy     IssueLink[]    @relation("blocked")
+
+  @@unique([projectId, number])
+  @@index([key])
+  @@index([projectId, status])
+  @@index([assigneeId])
+  @@index([sprintId])
+  @@index([epicId])
+}
+
+model IssueLabel {
+  issueId String
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  labelId String
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, labelId])
+}
+
+// blocker blocks blocked
+model IssueLink {
+  id        String @id @default(cuid())
+  blockerId String
+  blocker   Issue  @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   Issue  @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+}
+
+model Subtask {
+  id         String    @id @default(cuid())
+  title      String
+  done       Boolean   @default(false)
+  position   Float     @default(0)
+  issueId    String
+  issue      Issue     @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  assigneeId String?
+  assignee   User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  completedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([issueId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  automated Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([issueId])
+}
+
+model Watcher {
+  issueId String
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, userId])
+}
+
+// ─────────────────────────────────────────── git
+
+model GitBranch {
+  id        String   @id @default(cuid())
+  name      String
+  repo      String
+  commits   Int      @default(0)
+  ahead     Int      @default(0)
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([repo, name])
+  @@index([issueId])
+}
+
+enum PrState {
+  DRAFT
+  OPEN
+  MERGED
+  CLOSED
+}
+
+model PullRequest {
+  id           String   @id @default(cuid())
+  number       Int
+  repo         String
+  title        String
+  url          String?
+  state        PrState  @default(OPEN)
+  checksPassed Int      @default(0)
+  checksFailed Int      @default(0)
+  approvals    Int      @default(0)
+  branch       String?
+  issueId      String
+  issue        Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  mergedAt     DateTime?
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  @@unique([repo, number])
+  @@index([issueId])
+}
+
+// ─────────────────────────────────────────── activity & inbox
+
+enum ActivityType {
+  ISSUE_CREATED
+  ISSUE_UPDATED
+  STATUS_CHANGED
+  ASSIGNED
+  COMMENTED
+  MENTIONED
+  SUBTASK_DONE
+  BRANCH_PUSHED
+  PR_OPENED
+  PR_MERGED
+  CI_FAILED
+  SPRINT_STARTED
+  SPRINT_COMPLETED
+  EPIC_CREATED
+  PROJECT_CREATED
+  MEMBER_JOINED
+  BLOCKED
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  type      ActivityType
+  message   String
+  meta      Json?
+  automatic Boolean      @default(false)
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  issueId   String?
+  issue     Issue?       @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime     @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([issueId])
+}
+
+enum NotificationKind {
+  MENTION
+  ASSIGNED
+  REVIEW_REQUESTED
+  BLOCKING
+  CI_FAILED
+  COMMENT
+  DUE_TODAY
+  SPRINT
+}
+
+enum Urgency {
+  BLOCKING
+  TODAY
+  LATER
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  kind      NotificationKind
+  urgency   Urgency          @default(LATER)
+  title     String
+  detail    String?
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issueId   String?
+  issue     Issue?           @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  readAt    DateTime?
+  archivedAt DateTime?
+  emailedAt DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, archivedAt])
+}
+
+model NotificationPref {
+  userId          String  @id
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailMentions   Boolean @default(true)
+  emailAssigned   Boolean @default(true)
+  emailBlocking   Boolean @default(true)
+  emailCiFailures Boolean @default(false)
+  emailDigest     Boolean @default(true)
+}
+
+// ─────────────────────────────────────────── integrations
+
+model Integration {
+  id        String       @id @default(cuid())
+  provider  String
+  connected Boolean      @default(false)
+  account   String?
+  config    Json?
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, provider])
+}
+
+enum RuleTrigger {
+  BRANCH_PUSHED
+  PR_OPENED
+  PR_MERGED
+  CI_FAILED
+  ISSUE_CREATED
+}
+
+enum RuleAction {
+  SET_IN_PROGRESS
+  SET_IN_REVIEW
+  SET_DONE
+  COMMENT_ON_ISSUE
+  ADD_WATCHERS
+  ASSIGN_TO_ACTOR
+}
+
+model AutomationRule {
+  id        String       @id @default(cuid())
+  trigger   RuleTrigger
+  action    RuleAction
+  enabled   Boolean      @default(true)
+  label     String
+  builtIn   Boolean      @default(false)
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@index([orgId])
+}
+
+model ApiToken {
+  id         String       @id @default(cuid())
+  name       String
+  prefix     String
+  tokenHash  String       @unique
+  lastUsedAt DateTime?
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+  revokedAt  DateTime?
+
+  @@index([orgId])
+}
+
+enum MilestoneStatus {
+  ON_TRACK
+  AT_RISK
+  SHIPPED
+}
+
+model Milestone {
+  id     String          @id @default(cuid())
+  name   String
+  date   DateTime
+  status MilestoneStatus @default(ON_TRACK)
+  orgId  String
+  org    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+model UsageCounter {
+  id        String   @id @default(cuid())
+  orgId     String
+  month     String
+  metric    String
+  value     BigInt   @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, month, metric])
+}

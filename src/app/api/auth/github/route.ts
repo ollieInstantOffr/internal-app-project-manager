@@ -1,0 +1,33 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { randomToken } from "@/lib/auth";
+
+const APP = () => process.env.APP_URL || "http://localhost:3000";
+
+export async function GET(req: Request) {
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  if (!clientId) {
+    return NextResponse.redirect(`${APP()}/login?error=github_not_configured`);
+  }
+
+  const url = new URL(req.url);
+  const intent = url.searchParams.get("intent") ?? "signin";
+
+  const state = randomToken(16);
+  const jar = await cookies();
+  jar.set("arc_oauth_state", `${state}:${intent}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 600,
+  });
+
+  const authorize = new URL("https://github.com/login/oauth/authorize");
+  authorize.searchParams.set("client_id", clientId);
+  authorize.searchParams.set("redirect_uri", `${APP()}/api/auth/github/callback`);
+  authorize.searchParams.set("scope", "read:user user:email repo");
+  authorize.searchParams.set("state", state);
+
+  return NextResponse.redirect(authorize.toString());
+}
