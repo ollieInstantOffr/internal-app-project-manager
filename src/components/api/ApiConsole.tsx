@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/client";
 import { useToast } from "@/components/Toast";
-import { Modal, Popover, Empty } from "@/components/ui";
+import { Modal, Popover, Empty, Toggle } from "@/components/ui";
 import { CodeEditor } from "./CodeEditor";
 import { CollectionsPanel } from "./CollectionsPanel";
 import {
   formatBytes,
   prettyJson,
   statusClass,
+  describeAuth,
+  AUTH_LABEL,
+  type AuthType,
   type ConsoleState,
   type ConsoleRequest,
   type ConsoleCollection,
@@ -21,7 +24,7 @@ import {
 } from "./types";
 
 const METHODS: Method[] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-const REQUEST_TABS = ["Body", "Headers", "Params", "Tests"] as const;
+const REQUEST_TABS = ["Body", "Headers", "Params", "Auth", "Tests"] as const;
 const RESPONSE_TABS = ["Body", "Headers", "Timing"] as const;
 
 type Draft = {
@@ -32,6 +35,7 @@ type Draft = {
   headers: string;
   params: string;
   assertions: string;
+  skipAuth: boolean;
 };
 
 export function ApiConsole({ initial }: { initial: ConsoleState }) {
@@ -91,6 +95,7 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
       headers: JSON.stringify(active.headers ?? {}, null, 2),
       params: JSON.stringify(active.params ?? {}, null, 2),
       assertions: active.assertions ?? "",
+      skipAuth: active.skipAuth,
     });
     setDirty(false);
     setResult(null);
@@ -119,6 +124,7 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
             headers: safeParse(draft.headers),
             params: safeParse(draft.params),
             assertions: draft.assertions,
+            skipAuth: draft.skipAuth,
           },
         },
       );
@@ -144,6 +150,7 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
         headers: safeParse(draft.headers),
         params: safeParse(draft.params),
         assertions: draft.assertions,
+        skipAuth: draft.skipAuth,
       });
       setDirty(false);
       await refresh();
@@ -297,6 +304,7 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
         headers: request.headers,
         params: request.params,
         assertions: request.assertions,
+        skipAuth: request.skipAuth,
       });
       await refresh();
       setActiveId(res.request.id);
@@ -616,6 +624,7 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
                         {t === "Tests" && lineCount(draft.assertions) > 0
                           ? ` ${lineCount(draft.assertions)}`
                           : ""}
+                        {t === "Auth" && draft.skipAuth ? " off" : ""}
                       </button>
                     ))}
                   </div>
@@ -652,6 +661,79 @@ export function ApiConsole({ initial }: { initial: ConsoleState }) {
                       }}
                     />
                   )}
+                  {tab === "Auth" && (
+                    <div
+                      className="card"
+                      style={{ flex: 1, borderRadius: 14, display: "flex", flexDirection: "column", gap: 14 }}
+                    >
+                      <div>
+                        <div className="eyebrow">From the environment</div>
+                        <div
+                          className="row-flex"
+                          style={{ gap: 9, marginTop: 8, font: "400 12.5px var(--sans)" }}
+                        >
+                          <span
+                            className="dot"
+                            style={{
+                              background:
+                                environment && environment.authType !== "NONE" && environment.authTokenSet
+                                  ? "var(--success)"
+                                  : "var(--muted-2)",
+                            }}
+                          />
+                          <span className="mono">{describeAuth(environment)}</span>
+                        </div>
+                        <div
+                          style={{
+                            font: "400 11px/1.6 var(--sans)",
+                            color: "var(--muted)",
+                            marginTop: 8,
+                          }}
+                        >
+                          {environment?.authType === "NONE" || !environment
+                            ? "This environment sends no credentials."
+                            : environment.authTokenSet
+                              ? "Applied to every request in this environment unless switched off below."
+                              : "Set the token on the environment for it to be sent."}
+                        </div>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ marginTop: 10 }}
+                          onClick={() => setManagingEnvs(true)}
+                        >
+                          {environment?.authTokenSet ? "Change credentials" : "Set up auth"}
+                        </button>
+                      </div>
+
+                      <div className="divider" />
+
+                      <div className="row-flex" style={{ gap: 12, alignItems: "flex-start" }}>
+                        <Toggle
+                          on={!draft.skipAuth}
+                          label="Send environment auth"
+                          onChange={(next) => {
+                            setDraft({ ...draft, skipAuth: !next });
+                            setDirty(true);
+                          }}
+                        />
+                        <div className="grow">
+                          <div style={{ font: "500 12px var(--sans)" }}>
+                            Send auth with this request
+                          </div>
+                          <div style={{ font: "400 11px/1.6 var(--sans)", color: "var(--muted)" }}>
+                            Turn off for endpoints that must be unauthenticated — a login or
+                            sign-up route, say.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ font: "400 10.5px/1.6 var(--sans)", color: "var(--faint)" }}>
+                        An <span className="mono">Authorization</span> header set on the Headers tab
+                        overrides whatever the environment provides.
+                      </div>
+                    </div>
+                  )}
+
                   {tab === "Tests" && (
                     <CodeEditor
                       lineNumbers={false}
@@ -887,6 +969,8 @@ function NewEnvironmentModal({
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("https://");
   const [prNumber, setPrNumber] = useState("");
+  const [authType, setAuthType] = useState<AuthType>("NONE");
+  const [authToken, setAuthToken] = useState("");
   const [busy, setBusy] = useState(false);
 
   return (
@@ -905,6 +989,8 @@ function NewEnvironmentModal({
                 baseUrl: baseUrl.trim(),
                 kind: prNumber ? "PR_PREVIEW" : "STATIC",
                 prNumber: prNumber ? Number(prNumber) : null,
+                authType,
+                authToken: authToken.trim() || null,
               },
             );
             onCreated(res.environment.id);
@@ -943,6 +1029,45 @@ function NewEnvironmentModal({
             onChange={(e) => setBaseUrl(e.target.value)}
           />
         </div>
+
+        <div className="field">
+          <label className="label" htmlFor="env-new-auth">
+            Auth
+          </label>
+          <select
+            id="env-new-auth"
+            className="select"
+            value={authType}
+            onChange={(e) => setAuthType(e.target.value as AuthType)}
+          >
+            {(Object.keys(AUTH_LABEL) as AuthType[]).map((t) => (
+              <option key={t} value={t}>
+                {AUTH_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {authType !== "NONE" && (
+          <div className="field">
+            <label className="label" htmlFor="env-new-token">
+              Token
+            </label>
+            <input
+              id="env-new-token"
+              className="input mono"
+              type="password"
+              autoComplete="off"
+              style={{ fontSize: 12.5 }}
+              placeholder="paste the token"
+              value={authToken}
+              onChange={(e) => setAuthToken(e.target.value)}
+            />
+            <div style={{ font: "400 10.5px var(--sans)", color: "var(--faint)" }}>
+              Sent with every request in this environment. More options after creating it.
+            </div>
+          </div>
+        )}
 
         <div className="field">
           <label className="label" htmlFor="env-pr">
@@ -1038,10 +1163,22 @@ function ManageEnvironmentsModal({
 }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ name: string; baseUrl: string; variables: string }>({
+  const [draft, setDraft] = useState<{
+    name: string;
+    baseUrl: string;
+    variables: string;
+    authType: AuthType;
+    authToken: string;
+    authUsername: string;
+    authName: string;
+  }>({
     name: "",
     baseUrl: "",
     variables: "{}",
+    authType: "NONE",
+    authToken: "",
+    authUsername: "",
+    authName: "",
   });
   const [busy, setBusy] = useState(false);
 
@@ -1051,6 +1188,11 @@ function ManageEnvironmentsModal({
       name: env.name,
       baseUrl: env.baseUrl,
       variables: JSON.stringify(env.variables ?? {}, null, 2),
+      authType: env.authType,
+      // Blank means "keep the stored secret" — it never reaches the browser.
+      authToken: "",
+      authUsername: env.authUsername ?? "",
+      authName: env.authName ?? "",
     });
   }
 
@@ -1061,6 +1203,12 @@ function ManageEnvironmentsModal({
         name: draft.name.trim(),
         baseUrl: draft.baseUrl.trim(),
         variables: safeParse(draft.variables) ?? {},
+        authType: draft.authType,
+        authUsername: draft.authUsername.trim() || null,
+        authName: draft.authName.trim() || null,
+        // Omitted entirely when left blank, so the stored token survives.
+        ...(draft.authToken.trim() ? { authToken: draft.authToken.trim() } : {}),
+        ...(draft.authType === "NONE" ? { authToken: null } : {}),
       });
       setEditing(null);
       await onChanged();
@@ -1140,6 +1288,81 @@ function ManageEnvironmentsModal({
                 />
               </div>
               <div className="field">
+                <label className="label" htmlFor={`env-auth-${env.id}`}>
+                  Auth
+                </label>
+                <select
+                  id={`env-auth-${env.id}`}
+                  className="select input-sm"
+                  style={{ height: 34 }}
+                  value={draft.authType}
+                  onChange={(e) => setDraft({ ...draft, authType: e.target.value as AuthType })}
+                >
+                  {(Object.keys(AUTH_LABEL) as AuthType[]).map((t) => (
+                    <option key={t} value={t}>
+                      {AUTH_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {draft.authType === "BASIC" && (
+                <div className="field">
+                  <label className="label" htmlFor={`env-user-${env.id}`}>
+                    Username
+                  </label>
+                  <input
+                    id={`env-user-${env.id}`}
+                    className="input input-sm"
+                    value={draft.authUsername}
+                    onChange={(e) => setDraft({ ...draft, authUsername: e.target.value })}
+                  />
+                </div>
+              )}
+
+              {(draft.authType === "HEADER" || draft.authType === "QUERY") && (
+                <div className="field">
+                  <label className="label" htmlFor={`env-authname-${env.id}`}>
+                    {draft.authType === "HEADER" ? "Header name" : "Parameter name"}
+                  </label>
+                  <input
+                    id={`env-authname-${env.id}`}
+                    className="input input-sm mono"
+                    style={{ fontSize: 12 }}
+                    placeholder={draft.authType === "HEADER" ? "X-API-Key" : "api_key"}
+                    value={draft.authName}
+                    onChange={(e) => setDraft({ ...draft, authName: e.target.value })}
+                  />
+                </div>
+              )}
+
+              {draft.authType !== "NONE" && (
+                <div className="field">
+                  <label className="label" htmlFor={`env-token-${env.id}`}>
+                    {draft.authType === "BASIC" ? "Password" : "Token"}
+                  </label>
+                  <input
+                    id={`env-token-${env.id}`}
+                    className="input input-sm mono"
+                    type="password"
+                    autoComplete="off"
+                    style={{ fontSize: 12 }}
+                    placeholder={
+                      env.authTokenSet
+                        ? `${env.authTokenHint} — leave blank to keep`
+                        : "paste the token"
+                    }
+                    value={draft.authToken}
+                    onChange={(e) => setDraft({ ...draft, authToken: e.target.value })}
+                  />
+                  <div style={{ font: "400 10px var(--sans)", color: "var(--faint)" }}>
+                    Stored server-side and never sent back to the browser. Accepts{" "}
+                    <span className="mono">$env.NAME</span>.
+                  </div>
+                </div>
+              )}
+
+              <div className="field">
                 <label className="label" htmlFor={`env-vars-${env.id}`}>
                   Variables · used as $env.NAME
                 </label>
@@ -1178,6 +1401,14 @@ function ManageEnvironmentsModal({
                   {env.variables && Object.keys(env.variables).length
                     ? ` · ${Object.keys(env.variables).length} vars`
                     : ""}
+                </div>
+                <div
+                  style={{
+                    font: "400 10px var(--sans)",
+                    color: env.authType !== "NONE" && env.authTokenSet ? "var(--success)" : "var(--faint)",
+                  }}
+                >
+                  {describeAuth(env)}
                 </div>
               </div>
               <button className="btn btn-quiet btn-sm" onClick={() => startEdit(env)}>

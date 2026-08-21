@@ -7,6 +7,13 @@ import type { HttpMethod } from "@/generated/prisma/enums";
 const TIMEOUT_MS = 20_000;
 const MAX_BODY_CHARS = 200_000;
 
+export type EnvironmentAuth = {
+  authType: "NONE" | "BEARER" | "BASIC" | "HEADER" | "QUERY";
+  authToken: string | null;
+  authUsername: string | null;
+  authName: string | null;
+};
+
 export type ExecutedRequest = {
   name: string;
   method: HttpMethod;
@@ -48,6 +55,8 @@ export async function executeRequest(opts: {
   assertions?: string | null;
   baseUrl: string;
   variables: Record<string, string>;
+  auth?: EnvironmentAuth | null;
+  skipAuth?: boolean;
 }): Promise<ExecutedRequest> {
   const vars = opts.variables;
   let url = buildUrl(opts.baseUrl, opts.path, vars);
@@ -58,6 +67,12 @@ export async function executeRequest(opts: {
       query.map(([k, v]) => [k, interpolate(String(v), vars)]),
     ).toString();
     url += (url.includes("?") ? "&" : "?") + search;
+  }
+
+  const authApplied =
+    !opts.skipAuth && opts.auth ? authFor(opts.auth, vars) : { headers: {}, query: {} };
+  for (const [key, value] of Object.entries(authApplied.query)) {
+    url += (url.includes("?") ? "&" : "?") + `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
   }
 
   // Only ever speak HTTP. Anything else is a mistake or an attempt at something worse.
@@ -71,7 +86,10 @@ export async function executeRequest(opts: {
     return failed(opts, url, `${parsed.protocol} is not supported — use http or https`);
   }
 
-  const headers: Record<string, string> = {};
+  // Environment auth goes on first so an explicit header on the request still
+  // wins — a login endpoint can override it, or opt out entirely.
+  const headers: Record<string, string> = { ...authApplied.headers };
+
   for (const [key, value] of Object.entries(opts.headers ?? {})) {
     if (key) headers[key] = interpolate(String(value), vars);
   }
@@ -200,6 +218,7 @@ export async function runCollection(opts: {
   if (!requests.length) throw new HttpError(400, "There are no requests to run");
 
   const variables = (environment.variables as Record<string, string> | null) ?? {};
+  const auth = authOf(environment);
   const executed: ExecutedRequest[] = [];
 
   for (const request of requests) {
@@ -214,6 +233,8 @@ export async function runCollection(opts: {
         assertions: request.assertions,
         baseUrl: environment.baseUrl,
         variables,
+        auth,
+        skipAuth: request.skipAuth,
       }),
     );
   }
@@ -259,4 +280,45 @@ export async function runCollection(opts: {
   });
 
   return run;
+}
+
+
+/** Narrows an environment row to just its auth settings. */
+export function authOf(environment: {
+  authType: string;
+  authToken: string | null;
+  authUsername: string | null;
+  authName: string | null;
+}): EnvironmentAuth {
+  return {
+    authType: environment.authType as EnvironmentAuth["authType"],
+    authToken: environment.authToken,
+    authUsername: environment.authUsername,
+    authName: environment.authName,
+  };
+}
+
+/** Turns an environment's auth settings into headers or query parameters. */
+export function authFor(
+  auth: EnvironmentAuth,
+  vars: Record<string, string>,
+): { headers: Record<string, string>; query: Record<string, string> } {
+  const token = auth.authToken ? interpolate(auth.authToken, vars) : "";
+  if (auth.authType === "NONE" || !token) return { headers: {}, query: {} };
+
+  switch (auth.authType) {
+    case "BEARER":
+      return { headers: { Authorization: `Bearer ${token}` }, query: {} };
+    case "BASIC": {
+      const user = auth.authUsername ? interpolate(auth.authUsername, vars) : "";
+      const encoded = Buffer.from(`${user}:${token}`).toString("base64");
+      return { headers: { Authorization: `Basic ${encoded}` }, query: {} };
+    }
+    case "HEADER":
+      return { headers: { [auth.authName || "Authorization"]: token }, query: {} };
+    case "QUERY":
+      return { headers: {}, query: { [auth.authName || "api_key"]: token } };
+    default:
+      return { headers: {}, query: {} };
+  }
 }

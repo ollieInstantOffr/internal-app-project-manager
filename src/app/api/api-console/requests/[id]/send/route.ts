@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { handler, json, fail, parseBody, requireApiContext } from "@/lib/api";
 import { sendSchema } from "@/lib/api-console/validators";
-import { executeRequest } from "@/lib/api-console/runner";
+import { executeRequest, authOf } from "@/lib/api-console/runner";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -33,12 +33,14 @@ export const POST = handler(async (req: Request, { params }: Ctx) => {
     headers: (overrides?.headers ?? request.headers) as Record<string, string> | null,
     params: (overrides?.params ?? request.params) as Record<string, string> | null,
     assertions: overrides?.assertions !== undefined ? overrides.assertions : request.assertions,
+    skipAuth: overrides?.skipAuth ?? request.skipAuth,
   };
 
   const result = await executeRequest({
     ...merged,
     baseUrl: environment.baseUrl,
     variables: (environment.variables as Record<string, string> | null) ?? {},
+    auth: authOf(environment),
   });
 
   const run = await db.apiRun.create({

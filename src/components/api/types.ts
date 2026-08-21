@@ -9,6 +9,7 @@ export type ConsoleRequest = {
   headers: Record<string, string> | null;
   params: Record<string, string> | null;
   assertions: string | null;
+  skipAuth: boolean;
   failing: boolean;
 };
 
@@ -20,6 +21,8 @@ export type ConsoleCollection = {
   requests: ConsoleRequest[];
 };
 
+export type AuthType = "NONE" | "BEARER" | "BASIC" | "HEADER" | "QUERY";
+
 export type ConsoleEnvironment = {
   id: string;
   name: string;
@@ -28,7 +31,30 @@ export type ConsoleEnvironment = {
   prNumber: number | null;
   color: string;
   variables: Record<string, string> | null;
+  authType: AuthType;
+  authUsername: string | null;
+  authName: string | null;
+  /** The token itself never reaches the browser. */
+  authTokenSet: boolean;
+  authTokenHint: string | null;
 };
+
+export const AUTH_LABEL: Record<AuthType, string> = {
+  NONE: "No auth",
+  BEARER: "Bearer token",
+  BASIC: "Basic auth",
+  HEADER: "Custom header",
+  QUERY: "Query parameter",
+};
+
+export function describeAuth(env: ConsoleEnvironment | null): string {
+  if (!env || env.authType === "NONE") return "No auth";
+  if (!env.authTokenSet) return `${AUTH_LABEL[env.authType]} · not set`;
+  if (env.authType === "BASIC") return `Basic · ${env.authUsername ?? "user"}`;
+  if (env.authType === "HEADER") return `${env.authName ?? "Authorization"} · ${env.authTokenHint}`;
+  if (env.authType === "QUERY") return `?${env.authName ?? "api_key"}=${env.authTokenHint}`;
+  return `Bearer ${env.authTokenHint}`;
+}
 
 export type AssertionResult = { source: string; ok: boolean; detail: string };
 

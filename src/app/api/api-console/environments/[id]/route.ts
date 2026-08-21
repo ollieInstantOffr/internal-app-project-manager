@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { handler, json, fail, parseBody, requireApiContext } from "@/lib/api";
 import { environmentUpdateSchema } from "@/lib/api-console/validators";
+import { maskEnvironment } from "@/lib/api-console/sync";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -24,10 +25,20 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
       ...(body.variables !== undefined
         ? { variables: (body.variables ?? undefined) as never }
         : {}),
+      ...(body.authType ? { authType: body.authType } : {}),
+      ...(body.authUsername !== undefined ? { authUsername: body.authUsername || null } : {}),
+      ...(body.authName !== undefined ? { authName: body.authName || null } : {}),
+      // Turning auth off discards the secret rather than leaving it lying about.
+      ...(body.authType === "NONE"
+        ? { authToken: null, authUsername: null, authName: null }
+        : body.authToken === undefined
+          ? // An omitted token keeps the stored one, so the edit form can leave it blank.
+            {}
+          : { authToken: body.authToken || null }),
     },
   });
 
-  return json({ ok: true, environment });
+  return json({ ok: true, environment: maskEnvironment(environment) });
 });
 
 export const DELETE = handler(async (req: Request, { params }: Ctx) => {

@@ -259,6 +259,18 @@ in the toast — no browser dialogs anywhere.
 Environments are the deploys you already have, including per-PR previews.
 `$env.NAME` and `{{NAME}}` interpolate into the URL, headers and body.
 
+### Auth
+
+Credentials live on the environment, set once and applied to every request:
+bearer token, basic auth, a custom header, or a query parameter. The **Auth**
+tab on a request shows what it inherits and lets you switch it off for endpoints
+that must be unauthenticated — a login route, say. An explicit `Authorization`
+header on the Headers tab still wins.
+
+The token is stored server-side and **never sent to the browser** — the console
+only ever sees `••••1234`. Leaving the field blank when editing keeps the stored
+value; switching to *No auth* discards it.
+
 ### Assertions
 
 A small language, evaluated against the real response:

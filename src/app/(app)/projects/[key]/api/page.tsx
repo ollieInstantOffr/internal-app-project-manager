@@ -63,9 +63,11 @@ export default async function ApiConsolePage({ params }: { params: Promise<{ key
         headers: r.headers as Record<string, string> | null,
         params: r.params as Record<string, string> | null,
         assertions: r.assertions,
+        skipAuth: r.skipAuth,
         failing: failing.has(r.id),
       })),
     })),
+    // The auth token is deliberately not sent to the browser.
     environments: environments.map((e) => ({
       id: e.id,
       name: e.name,
@@ -74,6 +76,11 @@ export default async function ApiConsolePage({ params }: { params: Promise<{ key
       prNumber: e.prNumber,
       color: e.color,
       variables: e.variables as Record<string, string> | null,
+      authType: e.authType,
+      authUsername: e.authUsername,
+      authName: e.authName,
+      authTokenSet: !!e.authToken,
+      authTokenHint: e.authToken ? `••••${e.authToken.slice(-4)}` : null,
     })),
     latestRun: latestRun
       ? {

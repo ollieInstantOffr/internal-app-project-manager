@@ -36,6 +36,7 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
       ...(body.headers !== undefined ? { headers: (body.headers ?? undefined) as never } : {}),
       ...(body.params !== undefined ? { params: (body.params ?? undefined) as never } : {}),
       ...(body.assertions !== undefined ? { assertions: body.assertions } : {}),
+      ...(body.skipAuth !== undefined ? { skipAuth: body.skipAuth } : {}),
       ...(body.moveToCollectionId ? { collectionId: body.moveToCollectionId } : {}),
     },
   });

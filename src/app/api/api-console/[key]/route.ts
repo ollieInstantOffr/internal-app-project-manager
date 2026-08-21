@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { handler, json, requireApiContext, projectInOrg } from "@/lib/api";
+import { maskEnvironment } from "@/lib/api-console/sync";
 
 type Ctx = { params: Promise<{ key: string }> };
 
@@ -49,10 +50,11 @@ export const GET = handler(async (req: Request, { params }: Ctx) => {
         headers: r.headers,
         params: r.params,
         assertions: r.assertions,
+        skipAuth: r.skipAuth,
         failing: failing.has(r.id),
       })),
     })),
-    environments,
+    environments: environments.map(maskEnvironment),
     latestRun: latestRun
       ? {
           id: latestRun.id,

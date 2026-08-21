@@ -169,3 +169,17 @@ export async function ensureDefaultEnvironments(projectId: string, appUrl: strin
     skipDuplicates: true,
   });
 }
+
+
+/**
+ * Environments are shown with the secret masked. The stored value never leaves
+ * the server — the edit form sends a new one or nothing at all.
+ */
+export function maskEnvironment<T extends { authToken: string | null }>(environment: T) {
+  const { authToken, ...rest } = environment;
+  return {
+    ...rest,
+    authTokenSet: !!authToken,
+    authTokenHint: authToken ? `••••${authToken.slice(-4)}` : null,
+  };
+}

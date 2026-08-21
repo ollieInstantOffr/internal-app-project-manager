@@ -12,6 +12,7 @@ export const requestCreateSchema = z.object({
   headers: kv.optional().nullable(),
   params: kv.optional().nullable(),
   assertions: z.string().max(10_000).optional().nullable(),
+  skipAuth: z.boolean().optional(),
 });
 
 export const requestUpdateSchema = requestCreateSchema
@@ -43,6 +44,11 @@ export const environmentSchema = z.object({
   prNumber: z.number().int().positive().optional().nullable(),
   color: z.string().max(20).optional(),
   variables: kv.optional().nullable(),
+  authType: z.enum(["NONE", "BEARER", "BASIC", "HEADER", "QUERY"]).optional(),
+  /// Omitted on update means "leave the stored secret alone".
+  authToken: z.string().max(4000).optional().nullable(),
+  authUsername: z.string().max(200).optional().nullable(),
+  authName: z.string().max(100).optional().nullable(),
 });
 
 export const environmentUpdateSchema = environmentSchema.partial().omit({ projectId: true });

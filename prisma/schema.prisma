@@ -636,6 +636,8 @@ model ApiRequest {
   params       Json?
   /// One assertion per line, e.g. `status == 200`.
   assertions   String?
+  /// Send this one without the environment's auth — a login endpoint, say.
+  skipAuth     Boolean       @default(false)
   position     Float         @default(0)
   collectionId String
   collection   ApiCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
@@ -652,6 +654,16 @@ enum EnvironmentKind {
   PR_PREVIEW
 }
 
+/// How an environment authenticates. Set once, applied to every request that
+/// doesn't opt out.
+enum ApiAuthType {
+  NONE
+  BEARER
+  BASIC
+  HEADER
+  QUERY
+}
+
 model ApiEnvironment {
   id        String          @id @default(cuid())
   name      String
@@ -661,6 +673,14 @@ model ApiEnvironment {
   color     String          @default("amber")
   /// Substituted into requests as $env.NAME.
   variables Json?
+
+  authType     ApiAuthType @default(NONE)
+  /// Bearer token, API key, or the password half of basic auth.
+  authToken    String?
+  authUsername String?
+  /// Header or query-parameter name for HEADER / QUERY auth.
+  authName     String?
+
   projectId String
   project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt DateTime        @default(now())

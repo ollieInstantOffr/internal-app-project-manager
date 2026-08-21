@@ -270,11 +270,8 @@ function inferParams(scope: string): Record<string, string> | null {
 function inferHeaders(scope: string, source: string): Record<string, string> | null {
   const headers: Record<string, string> = {};
 
-  const readsAuth =
-    /headers\s*\.\s*get\s*\(\s*["'`]authorization["'`]/i.test(scope) ||
-    /requireApiContext|Bearer\s/i.test(scope) ||
-    /requireApiContext/.test(source);
-  if (readsAuth) headers.Authorization = "Bearer $env.API_TOKEN";
+  // Authorization is not set here: the environment carries it, so it applies to
+  // every request without being repeated on each one.
 
   const signature = /x-hub-signature|x-signature|webhook.*secret/i.test(scope);
   if (signature) headers["X-Hub-Signature-256"] = "$env.WEBHOOK_SIGNATURE";
