@@ -133,3 +133,63 @@ export async function ensureWebhook(token: string, fullName: string, appUrl: str
   });
   return res.ok;
 }
+
+
+export type RepoTreeEntry = { path: string; type: "blob" | "tree"; size?: number };
+
+/** The whole tree in one call — cheaper than walking directories. */
+export async function listRepoTree(
+  token: string,
+  fullName: string,
+  ref = "HEAD",
+): Promise<{ entries: RepoTreeEntry[]; truncated: boolean; ref: string }> {
+  const branch = ref === "HEAD" ? await defaultBranch(token, fullName) : ref;
+
+  const res = await fetch(`${API}/repos/${fullName}/git/trees/${encodeURIComponent(branch)}?recursive=1`, {
+    headers: headers(token),
+    cache: "no-store",
+  });
+  if (!res.ok) return { entries: [], truncated: false, ref: branch };
+
+  const raw = (await res.json()) as {
+    tree?: { path: string; type: string; size?: number }[];
+    truncated?: boolean;
+  };
+
+  return {
+    entries: (raw.tree ?? [])
+      .filter((e) => e.type === "blob" || e.type === "tree")
+      .map((e) => ({ path: e.path, type: e.type as "blob" | "tree", size: e.size })),
+    truncated: !!raw.truncated,
+    ref: branch,
+  };
+}
+
+export async function defaultBranch(token: string, fullName: string): Promise<string> {
+  const res = await fetch(`${API}/repos/${fullName}`, { headers: headers(token), cache: "no-store" });
+  if (!res.ok) return "main";
+  const raw = (await res.json()) as { default_branch?: string };
+  return raw.default_branch ?? "main";
+}
+
+/** Raw file contents, decoded. Returns null for anything binary or oversized. */
+export async function readRepoFile(
+  token: string,
+  fullName: string,
+  path: string,
+  ref?: string,
+): Promise<string | null> {
+  const query = ref ? `?ref=${encodeURIComponent(ref)}` : "";
+  const res = await fetch(`${API}/repos/${fullName}/contents/${encodeURI(path)}${query}`, {
+    headers: headers(token),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+
+  const raw = (await res.json()) as { content?: string; encoding?: string; size?: number };
+  if (!raw.content || raw.encoding !== "base64") return null;
+  if ((raw.size ?? 0) > 400_000) return null;
+
+  const text = Buffer.from(raw.content, "base64").toString("utf8");
+  return text.includes("\u0000") ? null : text;
+}

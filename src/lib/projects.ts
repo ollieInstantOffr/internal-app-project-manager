@@ -6,6 +6,7 @@ import { projectKeyFrom } from "./format";
 import { RANK_STEP } from "./rank";
 import { ACCENT_NAMES } from "./constants";
 import { listRepoIssues, ensureWebhook } from "./github";
+import { syncCollectionsFromRepo, ensureDefaultEnvironments } from "./api-console/sync";
 import { appUrl } from "./app-url";
 
 /** Finds a free 2–6 char key for a project inside an org. */
@@ -55,18 +56,33 @@ export async function createProject(input: {
     actorId: input.actorId,
   });
 
-  let imported = { issues: 0, epics: 0, labels: 0, webhook: false };
+  await ensureDefaultEnvironments(project.id, appUrl());
+
+  let imported = { issues: 0, epics: 0, labels: 0, webhook: false, api: 0 };
   if (input.repoFullName && input.githubToken && (input.importIssues || input.importLabels)) {
-    imported = await seedFromRepo({
+    imported = {
+      ...imported,
+      ...(await seedFromRepo({
+        projectId: project.id,
+        orgId: input.orgId,
+        actorId: input.actorId,
+        repoFullName: input.repoFullName,
+        token: input.githubToken,
+        importIssues: !!input.importIssues,
+        importLabels: !!input.importLabels,
+        importClosed: !!input.importClosed,
+      })),
+    };
+  }
+
+  // A linked repo gets its API console populated whether or not issues were imported.
+  if (input.repoFullName && input.githubToken) {
+    const api = await syncCollectionsFromRepo({
       projectId: project.id,
-      orgId: input.orgId,
-      actorId: input.actorId,
       repoFullName: input.repoFullName,
       token: input.githubToken,
-      importIssues: !!input.importIssues,
-      importLabels: !!input.importLabels,
-      importClosed: !!input.importClosed,
-    });
+    }).catch(() => null);
+    if (api) imported.api = api.requests;
   }
 
   return { project, imported };

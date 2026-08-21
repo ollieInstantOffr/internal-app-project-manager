@@ -837,6 +837,218 @@ input, textarea, select { font: inherit; color: inherit; }
 .table-row:last-child { border-bottom: none; }
 .table-row:hover { background: var(--surface); }
 
+/* ── api console ──────────────────────────────────────────── */
+
+.console-collections {
+  width: 250px;
+  flex: none;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.method-badge {
+  font: 700 8.5px var(--mono);
+  border-radius: 4px;
+  padding: 2px 4px;
+  width: 32px;
+  text-align: center;
+  flex: none;
+  letter-spacing: 0.02em;
+}
+.method-GET    { color: var(--success); border: 1px solid oklch(0.4 0.06 150); }
+.method-POST   { color: var(--accent-fg); background: var(--accent); }
+.method-PUT,
+.method-PATCH  { color: var(--amber); border: 1px solid oklch(0.42 0.07 40); }
+.method-DELETE { color: oklch(0.72 0.09 25); border: 1px solid oklch(0.42 0.07 25); }
+.method-HEAD,
+.method-OPTIONS { color: var(--muted); border: 1px solid var(--line-strong); }
+
+.request-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px 7px 20px;
+  border-radius: 9px;
+  font: 400 11.5px var(--sans);
+  color: var(--text-3);
+  width: 100%;
+  text-align: left;
+}
+.request-row:hover { background: var(--surface); color: var(--text); }
+.request-row[data-active="true"] { background: oklch(0.3 0.03 128); color: var(--text); }
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  font: 600 11.5px var(--display);
+  color: var(--text-2);
+  width: 100%;
+  text-align: left;
+}
+.folder-row:hover { color: var(--text); }
+
+.url-bar {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font: 400 12.5px var(--mono);
+  gap: 0;
+  min-width: 0;
+}
+.url-bar input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  font: inherit;
+  color: var(--text);
+  padding: 0;
+}
+.url-base { color: var(--muted); white-space: nowrap; }
+
+.status-pill {
+  padding: 4px 11px;
+  border-radius: var(--r-pill);
+  font: 700 11px var(--mono);
+  white-space: nowrap;
+}
+.status-2xx { background: var(--success-bg); color: var(--success-fg); }
+.status-3xx { background: var(--blue-dim); color: oklch(0.92 0.04 230); }
+.status-4xx,
+.status-5xx { background: oklch(0.36 0.09 25); color: var(--danger-fg); }
+.status-err { background: var(--hover-strong); color: var(--muted); }
+
+.assert-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 400 11px var(--mono);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.assert-row[data-ok="false"] {
+  color: oklch(0.88 0.07 25);
+  background: oklch(0.28 0.06 25);
+  border-radius: 8px;
+  padding: 7px 9px;
+}
+
+.failure-card {
+  border-radius: var(--r-lg);
+  background: oklch(0.28 0.06 25);
+  box-shadow: 0 0 0 1.5px oklch(0.5 0.11 25);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── code editor ──────────────────────────────────────────── */
+
+.code-wrap {
+  flex: 1;
+  display: flex;
+  border-radius: var(--r-lg);
+  background: oklch(0.19 0.01 285);
+  border: 1px solid var(--line-strong);
+  overflow: hidden;
+  min-height: 0;
+}
+.code-gutter {
+  flex: none;
+  padding: 14px 8px 14px 12px;
+  font: 400 11.5px/1.85 var(--mono);
+  color: var(--faint);
+  text-align: right;
+  user-select: none;
+  background: oklch(0.185 0.01 285);
+}
+.code-area { position: relative; flex: 1; min-width: 0; }
+
+.code-highlight,
+.code-input {
+  margin: 0;
+  padding: 14px;
+  font: 400 11.5px/1.85 var(--mono);
+  white-space: pre;
+  overflow: auto;
+  border: none;
+  tab-size: 2;
+}
+.code-highlight {
+  position: absolute;
+  inset: 0;
+  color: var(--text);
+  pointer-events: none;
+}
+.code-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--accent);
+  outline: none;
+  resize: none;
+}
+.code-input::selection { background: oklch(0.4 0.06 128 / 0.55); }
+
+.tok-key { color: oklch(0.78 0.1 230); }
+.tok-string { color: oklch(0.84 0.14 128); }
+.tok-number, .tok-literal { color: oklch(0.8 0.13 40); }
+.tok-punct { color: oklch(0.9 0.008 90); }
+
+/* ── run results ──────────────────────────────────────────── */
+
+.run-table {
+  flex: 1;
+  border-radius: var(--r-lg);
+  background: oklch(0.265 0.012 285);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.run-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 15px;
+  border-bottom: 1px solid var(--line);
+  font: 500 9.5px var(--mono);
+  letter-spacing: 0.09em;
+  color: var(--faint);
+  text-transform: uppercase;
+  flex: none;
+}
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 15px;
+  border-bottom: 1px solid oklch(0.28 0.012 285);
+  width: 100%;
+  text-align: left;
+  font: 400 12px var(--sans);
+}
+.run-row:hover { background: var(--surface); }
+.run-row[data-failed="true"] {
+  background: oklch(0.28 0.06 25);
+  box-shadow: inset 3px 0 0 var(--danger-solid);
+}
+.run-row[data-failed="true"]:hover { background: oklch(0.31 0.07 25); }
+
 /* ── split layouts ────────────────────────────────────────── */
 
 .split { display: flex; flex: 1; min-height: 0; }
@@ -1171,6 +1383,8 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
     border-top: 1px solid var(--line);
   }
 
+  .console-collections { width: 210px; }
+
   .queue-pane { width: 340px; }
 
   /* Too many columns to compress without truncating names to nothing. */
@@ -1276,6 +1490,19 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
 
   .backlog-list { padding: 0 16px; }
   .sprint-panel { padding: 0 16px 16px; }
+
+  /* The collections list becomes a sheet above the request. */
+  .console-split { flex-direction: column; overflow-y: auto; }
+  .console-collections {
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    max-height: 260px;
+  }
+  .console-panes { flex-direction: column; }
+  .console-response { width: auto; }
+  .run-head, .run-row { min-width: 560px; }
+  .run-table { overflow-x: auto; }
 
   .roadmap-body { padding: 0 16px 16px; overflow-x: auto; }
   .roadmap-labels { width: 150px; position: sticky; left: 0; z-index: 2; background: var(--panel); }

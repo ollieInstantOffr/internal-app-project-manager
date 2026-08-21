@@ -90,13 +90,18 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
                 { slug: "board", label: "Board" },
                 { slug: "backlog", label: "Backlog" },
                 { slug: "epics", label: "Epics" },
+                { slug: "api", label: "API console" },
                 { slug: "insights", label: "Insights" },
               ].map((tab) => (
                 <Link
                   key={tab.slug}
                   href={`/projects/${activeProject.key}/${tab.slug}`}
                   className="rail-item"
-                  data-active={pathname.endsWith(`/${tab.slug}`)}
+                  data-active={
+                    tab.slug === "api"
+                      ? pathname.includes(`/${activeProject.key}/api`)
+                      : pathname.endsWith(`/${tab.slug}`)
+                  }
                 >
                   {tab.label}
                 </Link>
@@ -129,6 +134,37 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
             </div>
           )}
         </>
+      )}
+
+      {pathname.includes("/api") && !pathname.startsWith("/settings") && (
+        <div
+          className="card kbd-hint"
+          style={{
+            marginTop: "auto",
+            borderRadius: 14,
+            background: "var(--surface)",
+            padding: 13,
+            display: "flex",
+            flexDirection: "column",
+            gap: 7,
+          }}
+        >
+          <div className="eyebrow">Shortcuts</div>
+          {[
+            ["⌘⏎", "send"],
+            ["⌘E", "environment"],
+            ["⌘⇧I", "issue from run"],
+          ].map(([keys, action]) => (
+            <div
+              key={keys}
+              className="mono"
+              style={{ fontSize: 10.5, color: "var(--text-3)", display: "flex", gap: 8 }}
+            >
+              <span style={{ width: 34 }}>{keys}</span>
+              <span style={{ color: "var(--muted)" }}>{action}</span>
+            </div>
+          ))}
+        </div>
       )}
 
       {pathname.startsWith("/my-work") && (

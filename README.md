@@ -144,6 +144,8 @@ than running off the edge.
 | `/onboarding/invite` | — | Skippable bulk invite |
 | `/onboarding/project` | 3c | Pick a repo, import issues, labels become epics |
 | `/home` | 3d | Four counters, project cards, live activity |
+| `/projects/[key]/api` | 4a | API console — collections, request/response, assertions |
+| `/projects/[key]/api/runs/[id]` | 4b | Run results, and one click from a failure to an issue |
 | `/projects/[key]/board` | 1e | Kanban, drag between columns, WIP limits, inline compose, bulk bar |
 | `/issues/[key]` | 3e | Inline-editable everything, subtasks, git panel, activity/comments/history |
 | `/projects/[key]/backlog` | 3f | Grouped rows, range-select, drag into the sprint, capacity from velocity |
@@ -180,6 +182,51 @@ name — that is how the table above was verified.
 Rules are editable: toggle them off, or add your own trigger→action pair.
 
 ---
+
+## API console
+
+A fifth item under each project. Collections come from the repository rather
+than being maintained by hand: **when a project is linked to a repo, Arc finds
+its `/api` folder and builds the collection automatically** — on creation, and
+again whenever you press *Sync from repo*.
+
+Next.js route handlers are understood properly. `src/app/api/issues/[key]/route.ts`
+exporting `GET`, `PATCH` and `DELETE` becomes three requests at `/api/issues/:key`,
+grouped into an **Issues** collection. Pages-router and plain files degrade to one
+`GET` per file. Re-syncing keeps ids, so assertions you wrote survive a deploy,
+and endpoints deleted from the repo disappear from the console.
+
+Environments are the deploys you already have, including per-PR previews.
+`$env.NAME` and `{{NAME}}` interpolate into the URL, headers and body.
+
+### Assertions
+
+A small language, evaluated against the real response:
+
+```
+status == 200
+body.token exists
+body.user.role == owner
+duration < 500ms
+headers["set-cookie"] contains "Secure"
+body.email matches ^\w+@
+```
+
+Supports `== != > < >= <= contains matches exists` against `status`, `duration`,
+`body.<path>` and `headers[...]`. A line that can't be parsed **fails** rather
+than silently passing, so a typo can never look green.
+
+### The loop
+
+Run a collection → an assertion fails → the failure panel prefills an issue with
+the failing assertion as the title, and attaches the exact request and response
+so it's reproducible. One result can only become one issue; filing it twice is
+refused. Shortcuts: `⌘⏎` send, `⌘E` cycle environment, `⌘⇧I` issue from run.
+
+Requests are executed server-side, so the console can reach hosts a browser
+can't. That is deliberate — it's how you test an internal deploy — but it does
+mean anyone who can add an environment can make the server issue HTTP requests
+to it. Only `http` and `https` are allowed, and there's a 20s timeout.
 
 ## API
 

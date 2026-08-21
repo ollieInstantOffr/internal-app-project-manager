@@ -37,6 +37,7 @@ model User {
   notifications  Notification[]
   sentInvites    Invite[]         @relation("inviter")
   tokens         ApiToken[]
+  apiRuns        ApiRun[]
   prefs          NotificationPref?
   magicLinks     MagicLink[]
 
@@ -163,10 +164,13 @@ model Project {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  issues  Issue[]
-  epics   Epic[]
-  sprints Sprint[]
-  labels  Label[]
+  issues       Issue[]
+  epics        Epic[]
+  sprints      Sprint[]
+  labels       Label[]
+  collections  ApiCollection[]
+  environments ApiEnvironment[]
+  apiRuns      ApiRun[]
 
   @@unique([orgId, key])
   @@index([orgId])
@@ -295,6 +299,7 @@ model Issue {
   pullRequests  PullRequest[]
   blocks        IssueLink[]    @relation("blocker")
   blockedBy     IssueLink[]    @relation("blocked")
+  apiFailures   ApiRunResult[]
 
   @@unique([projectId, number])
   @@index([key])
@@ -579,4 +584,146 @@ model UsageCounter {
   updatedAt DateTime @updatedAt
 
   @@unique([orgId, month, metric])
+}
+
+// ─────────────────────────────────────────── api console
+
+enum HttpMethod {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+  HEAD
+  OPTIONS
+}
+
+/// Where a collection came from. REPO collections are rebuilt from the
+/// repository's /api folder and shouldn't be hand-edited.
+enum CollectionSource {
+  REPO
+  MANUAL
+}
+
+model ApiCollection {
+  id        String           @id @default(cuid())
+  name      String
+  source    CollectionSource @default(MANUAL)
+  /// Path in the repo this folder was derived from, e.g. "src/app/api/issues".
+  repoPath  String?
+  position  Float            @default(0)
+  projectId String
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  requests ApiRequest[]
+  runs     ApiRun[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model ApiRequest {
+  id           String        @id @default(cuid())
+  name         String
+  method       HttpMethod    @default(GET)
+  /// Appended to the environment's base URL, e.g. "/api/issues/:key".
+  path         String
+  body         String?
+  headers      Json?
+  params       Json?
+  /// One assertion per line, e.g. `status == 200`.
+  assertions   String?
+  position     Float         @default(0)
+  collectionId String
+  collection   ApiCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  results ApiRunResult[]
+
+  @@index([collectionId])
+}
+
+enum EnvironmentKind {
+  STATIC
+  PR_PREVIEW
+}
+
+model ApiEnvironment {
+  id        String          @id @default(cuid())
+  name      String
+  baseUrl   String
+  kind      EnvironmentKind @default(STATIC)
+  prNumber  Int?
+  color     String          @default("amber")
+  /// Substituted into requests as $env.NAME.
+  variables Json?
+  projectId String
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  runs ApiRun[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model ApiRun {
+  id            String          @id @default(cuid())
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environmentId String?
+  environment   ApiEnvironment? @relation(fields: [environmentId], references: [id], onDelete: SetNull)
+  collectionId  String?
+  collection    ApiCollection?  @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  triggeredById String?
+  triggeredBy   User?           @relation(fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  passed     Int      @default(0)
+  failed     Int      @default(0)
+  p95Ms      Int      @default(0)
+  requestCount Int    @default(0)
+  createdAt  DateTime @default(now())
+
+  results ApiRunResult[]
+
+  @@index([projectId, createdAt])
+}
+
+model ApiRunResult {
+  id        String      @id @default(cuid())
+  runId     String
+  run       ApiRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  requestId String?
+  request   ApiRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  /// Snapshotted so a result stays readable after the request is edited.
+  name       String
+  method     HttpMethod
+  url        String
+  requestBody String?
+
+  status       Int?
+  statusText   String?
+  durationMs   Int        @default(0)
+  sizeBytes    Int        @default(0)
+  responseBody String?
+  responseHeaders Json?
+  error        String?
+
+  /// [{ source, ok, detail }]
+  assertions   Json?
+  passedCount  Int        @default(0)
+  failedCount  Int        @default(0)
+
+  /// Set when this failure was turned into an issue.
+  issueId String?
+  issue   Issue?  @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([runId])
+  @@index([issueId])
 }
