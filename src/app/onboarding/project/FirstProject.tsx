@@ -222,7 +222,7 @@ export default function FirstProject({ githubConnected }: { githubConnected: boo
 
         {!githubConnected && (
           <Link
-            href="/api/auth/github?intent=connect"
+            prefetch={false} href="/api/auth/github?intent=connect"
             style={{ font: "400 11.5px var(--sans)", color: "var(--accent)" }}
           >
             Connect GitHub to seed from a repo →

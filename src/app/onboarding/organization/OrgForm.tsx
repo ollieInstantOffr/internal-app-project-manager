@@ -187,7 +187,7 @@ export default function OrgForm({
         {githubConnected ? (
           <span className="pill pill-success">Connected</span>
         ) : (
-          <Link className="btn btn-primary btn-sm" href="/api/auth/github?intent=connect">
+          <Link className="btn btn-primary btn-sm" prefetch={false} href="/api/auth/github?intent=connect">
             Connect
           </Link>
         )}

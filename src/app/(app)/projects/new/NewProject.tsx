@@ -182,7 +182,7 @@ export default function NewProject({ githubConnected }: { githubConnected: boole
             </div>
           ) : (
             <div className="card-dashed">
-              <Link href="/api/auth/github?intent=connect" className="link-accent">
+              <Link prefetch={false} href="/api/auth/github?intent=connect" className="link-accent">
                 Connect GitHub
               </Link>{" "}
               to seed a project from a repo and let branches move issues on their own.

@@ -52,7 +52,7 @@ export default async function CodePage({
           {!githubToken && (
             <Link
               className="btn btn-primary"
-              href="/api/auth/github?intent=connect"
+              prefetch={false} href="/api/auth/github?intent=connect"
               style={{ alignSelf: "center" }}
             >
               Connect GitHub

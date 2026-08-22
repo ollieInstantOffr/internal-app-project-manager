@@ -135,7 +135,7 @@ export function Integrations({
               ) : (
                 <Link
                   className="btn btn-primary btn-sm"
-                  href="/api/auth/github?intent=connect"
+                  prefetch={false} href="/api/auth/github?intent=connect"
                   aria-disabled={!github.oauthConfigured}
                 >
                   Connect
