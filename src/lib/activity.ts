@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "./db";
 import { ActivityType, NotificationKind, Urgency } from "./types";
 import { sendMail } from "./mail";
+import { publish } from "./events";
 import {
   mentionTemplate,
   assignedTemplate,
@@ -18,6 +19,8 @@ export async function logActivity(opts: {
   automatic?: boolean;
   meta?: Record<string, unknown>;
 }) {
+  void publish({ orgId: opts.orgId, kind: "activity", issueId: opts.issueId ?? null });
+
   return db.activity.create({
     data: {
       orgId: opts.orgId,
@@ -42,6 +45,15 @@ export async function notify(opts: {
   actorId?: string | null;
 }) {
   if (opts.actorId && opts.actorId === opts.userId) return null;
+
+  // The inbox badge is the change people notice going stale first.
+  const membership = await db.membership.findFirst({
+    where: { userId: opts.userId },
+    select: { orgId: true },
+  });
+  if (membership) {
+    void publish({ orgId: membership.orgId, kind: "notification", userId: opts.userId });
+  }
 
   if (opts.issueId) {
     const existing = await db.notification.findFirst({

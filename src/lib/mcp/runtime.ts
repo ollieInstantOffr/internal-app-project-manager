@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "../db";
 import { sha256 } from "../auth";
 import { notify } from "../activity";
+import { publish } from "../events";
 import { NotificationKind, Urgency } from "../types";
 import { FORBIDDEN_TOOLS, type Level } from "./levels";
 import { TOOL_BY_NAME, type Tool, type ToolContext } from "./tools";
@@ -175,6 +176,7 @@ export async function callTool(
       title: `${assistant.name} is waiting on you`,
       detail: `Wants to ${tool.summarise(args)}`,
     });
+    void publish({ orgId: assistant.orgId, kind: "approval", userId: connection.ctx.ownerId });
 
     return {
       text: [
