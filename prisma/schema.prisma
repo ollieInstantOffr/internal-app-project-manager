@@ -120,6 +120,7 @@ model Organization {
   tasks        Task[]
   assistants   Assistant[]
   savedViews   SavedView[]
+  storage      StorageConfig?
 }
 
 model Membership {
@@ -1153,6 +1154,9 @@ model Attachment {
   size     Int
   /// Path within the attachment store; never trusted from the client.
   storageKey String @unique
+  /// Where this particular file lives. Recorded per attachment so switching the
+  /// org to S3 doesn't strand everything already written to disk.
+  storage    StorageKind @default(LOCAL)
 
   issueId String
   issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
@@ -1208,4 +1212,41 @@ model SavedView {
 
   @@index([orgId, scope])
   @@index([ownerId])
+}
+
+
+// ─────────────────────────────────────────── attachment storage
+
+enum StorageKind {
+  LOCAL
+  S3
+}
+
+/// Per-organisation attachment storage. Absent, or provider LOCAL, means the
+/// server's own disk — which is the default and needs no configuration.
+model StorageConfig {
+  id    String       @id @default(cuid())
+  orgId String       @unique
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  provider StorageKind @default(LOCAL)
+
+  bucket   String?
+  region   String?
+  /// Set for S3-compatible services (R2, MinIO, Backblaze); blank means AWS.
+  endpoint String?
+  /// MinIO and some proxies need bucket-in-path rather than bucket-as-subdomain.
+  forcePathStyle Boolean @default(false)
+  /// Optional prefix, so one bucket can hold more than one thing.
+  prefix   String?
+
+  /// Encrypted at rest, like every other stored credential.
+  accessKeyId     String?
+  secretAccessKey String?
+
+  /// Set when a test round-trip last succeeded, so the screen can say so.
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { HttpError } from "./auth";
+import { deleteObject, getObject, putObject, s3SettingsFor } from "./storage/s3";
 
 /**
  * Where uploaded files live. A Docker volume in production; ./.attachments
@@ -75,22 +76,53 @@ function resolve(storageKey: string) {
   return `${ROOT}/${storageKey}`;
 }
 
-export async function store(bytes: Buffer, mimeType: string) {
+export type StorageKind = "LOCAL" | "S3";
+
+/**
+ * Writes a file wherever this organisation has said to put it.
+ *
+ * Where it went is returned and recorded on the attachment, so switching an org
+ * to S3 later doesn't strand everything already on disk — each file is read back
+ * from the place it was actually written.
+ */
+export async function store(orgId: string, bytes: Buffer, mimeType: string) {
   if (!isAllowed(mimeType)) throw new HttpError(415, "That file type isn't allowed");
   if (bytes.byteLength > MAX_BYTES) throw new HttpError(413, "That file is over 10 MB");
 
   const storageKey = makeKey(mimeType);
+  const settings = await s3SettingsFor(orgId);
+
+  if (settings) {
+    await putObject(settings, storageKey, bytes, mimeType);
+    return { storageKey, size: bytes.byteLength, storage: "S3" as const };
+  }
+
   const full = resolve(storageKey);
   await mkdir(`${ROOT}/${storageKey.slice(0, storageKey.lastIndexOf("/"))}`, { recursive: true });
   await writeFile(full, bytes);
-
-  return { storageKey, size: bytes.byteLength };
+  return { storageKey, size: bytes.byteLength, storage: "LOCAL" as const };
 }
 
-export async function load(storageKey: string) {
+export async function load(orgId: string, storageKey: string, storage: StorageKind) {
+  if (storage === "S3") {
+    const settings = await s3SettingsFor(orgId);
+    if (!settings) {
+      throw new HttpError(
+        503,
+        "This file lives in S3, but the bucket isn't configured any more. Restore the settings to read it.",
+      );
+    }
+    return getObject(settings, storageKey);
+  }
   return readFile(resolve(storageKey));
 }
 
-export async function remove(storageKey: string) {
+export async function remove(orgId: string, storageKey: string, storage: StorageKind) {
+  if (storage === "S3") {
+    const settings = await s3SettingsFor(orgId);
+    // Nothing to delete against; the row goes either way rather than blocking.
+    if (settings) await deleteObject(settings, storageKey).catch(() => {});
+    return;
+  }
   await unlink(resolve(storageKey)).catch(() => {});
 }

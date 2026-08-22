@@ -18,7 +18,7 @@ export const GET = handler(async (req: Request, { params }: Ctx) => {
   const { id } = await params;
   const attachment = await reachable(id, ctx.orgId);
 
-  const bytes = await load(attachment.storageKey);
+  const bytes = await load(ctx.orgId, attachment.storageKey, attachment.storage);
   const inline = canRenderInline(attachment.mimeType);
 
   return new Response(new Uint8Array(bytes), {
@@ -41,6 +41,6 @@ export const DELETE = handler(async (req: Request, { params }: Ctx) => {
   const attachment = await reachable(id, ctx.orgId);
 
   await db.attachment.delete({ where: { id } });
-  await remove(attachment.storageKey);
+  await remove(ctx.orgId, attachment.storageKey, attachment.storage);
   return json({ ok: true });
 });

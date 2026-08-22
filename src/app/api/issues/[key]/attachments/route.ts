@@ -34,7 +34,7 @@ export const POST = handler(async (req: Request, { params }: Ctx) => {
   if (!isAllowed(mimeType)) throw new HttpError(415, `${mimeType} isn't an allowed file type`);
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const stored = await store(bytes, mimeType);
+  const stored = await store(ctx.orgId, bytes, mimeType);
 
   const attachment = await db.attachment.create({
     data: {
@@ -42,6 +42,7 @@ export const POST = handler(async (req: Request, { params }: Ctx) => {
       mimeType,
       size: stored.size,
       storageKey: stored.storageKey,
+      storage: stored.storage,
       issueId: issue.id,
       uploadedById: ctx.userId,
     },

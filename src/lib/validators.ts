@@ -329,3 +329,23 @@ export const viewCreateSchema = z.object({
 });
 
 export const viewUpdateSchema = viewCreateSchema.partial().omit({ scope: true });
+
+/* ── Attachment storage ──────────────────────────────────────────────────── */
+
+export const storageSettingsSchema = z.object({
+  provider: z.enum(["LOCAL", "S3"]),
+  bucket: z.string().trim().max(200).optional().nullable(),
+  region: z.string().trim().max(60).optional().nullable(),
+  endpoint: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .nullable()
+    .refine((v) => !v || /^https?:\/\//.test(v), "Must start with http:// or https://"),
+  forcePathStyle: z.boolean().optional(),
+  prefix: z.string().trim().max(200).optional().nullable(),
+  accessKeyId: z.string().trim().max(300).optional().nullable(),
+  /** Blank means "leave the stored one alone", so the page never echoes it. */
+  secretAccessKey: z.string().trim().max(500).optional().nullable(),
+});
