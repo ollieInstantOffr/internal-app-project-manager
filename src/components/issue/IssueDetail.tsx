@@ -13,6 +13,7 @@ import { STATUS_LABEL, STATUS_ORDER, accent } from "@/lib/constants";
 import { Subtasks, type Subtask } from "./Subtasks";
 import { Discussion, type Comment, type ActivityRow } from "./Discussion";
 import { IssueSidebar } from "./IssueSidebar";
+import { MarkdownEditable } from "@/components/Markdown";
 import {
   AttachmentList,
   DropZone,
@@ -367,17 +368,10 @@ export function IssueDetail({
               </Popover>
             </div>
 
-            <Editable
-              multiline
+            <MarkdownEditable
               value={local.description ?? ""}
               onCommit={(description) => patch({ description })}
-              placeholder="Click to add a description — no modal, no save button."
-              style={{
-                font: "400 13px/1.75 var(--sans)",
-                color: "var(--text-3)",
-                maxWidth: 640,
-                whiteSpace: "pre-wrap",
-              }}
+              placeholder="Click to add a description — markdown works, no save button."
             />
 
             <Subtasks issueKey={local.key} subtasks={subtasks} />

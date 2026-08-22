@@ -243,3 +243,78 @@ export function serializeSession(session: SessionRow | null) {
     task: session.task,
   };
 }
+
+export type EstimateAccuracy = {
+  /** Issues with both a point estimate and time this person logged. */
+  sampled: number;
+  medianMinutesPerPoint: number | null;
+  /** The worst overruns against that median, biggest first. */
+  outliers: {
+    key: string;
+    title: string;
+    estimate: number;
+    minutes: number;
+    ratio: number;
+  }[];
+};
+
+/**
+ * How this person's estimates compare to the time they actually logged.
+ *
+ * Strictly their own sessions. Focus time is personal by design — it feeds the
+ * timer's own stats and nobody's report — so this never aggregates across
+ * people, and there is deliberately no org-wide version of it.
+ */
+export async function estimateAccuracy(userId: string, orgId: string): Promise<EstimateAccuracy> {
+  const sessions = await db.focusSession.findMany({
+    where: {
+      userId,
+      kind: "FOCUS",
+      loggedAt: { not: null },
+      issue: { project: { orgId }, estimate: { not: null }, status: "DONE" },
+    },
+    select: {
+      minutes: true,
+      issue: { select: { key: true, title: true, estimate: true } },
+    },
+  });
+
+  // Several sessions can land on one issue; the comparison is per issue.
+  const byIssue = new Map<string, { title: string; estimate: number; minutes: number }>();
+  for (const session of sessions) {
+    if (!session.issue?.estimate) continue;
+    const found = byIssue.get(session.issue.key);
+    if (found) found.minutes += session.minutes;
+    else
+      byIssue.set(session.issue.key, {
+        title: session.issue.title,
+        estimate: session.issue.estimate,
+        minutes: session.minutes,
+      });
+  }
+
+  const rows = [...byIssue].map(([key, row]) => ({
+    key,
+    title: row.title,
+    estimate: row.estimate,
+    minutes: row.minutes,
+    perPoint: row.minutes / row.estimate,
+  }));
+
+  if (!rows.length) return { sampled: 0, medianMinutesPerPoint: null, outliers: [] };
+
+  const sorted = [...rows].sort((a, b) => a.perPoint - b.perPoint);
+  const mid = Math.floor(sorted.length / 2);
+  // Median, not mean: one all-nighter shouldn't redefine what a point costs.
+  const median =
+    sorted.length % 2 ? sorted[mid].perPoint : (sorted[mid - 1].perPoint + sorted[mid].perPoint) / 2;
+
+  const outliers = rows
+    .map((row) => ({ ...row, ratio: median ? row.perPoint / median : 1 }))
+    .filter((row) => row.ratio > 1.5)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 3)
+    .map(({ key, title, estimate, minutes, ratio }) => ({ key, title, estimate, minutes, ratio }));
+
+  return { sampled: rows.length, medianMinutesPerPoint: Math.round(median), outliers };
+}

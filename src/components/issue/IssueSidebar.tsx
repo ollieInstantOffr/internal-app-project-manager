@@ -228,6 +228,12 @@ export function IssueSidebar({
               title="Only you can see this"
             >
               {humanMinutes(focusMinutes)}
+              {issue.estimate ? (
+                <span style={{ color: "var(--muted-2)" }}>
+                  {" "}
+                  · {Math.round(focusMinutes / issue.estimate)}m/pt
+                </span>
+              ) : null}
             </span>
           </Field>
         )}

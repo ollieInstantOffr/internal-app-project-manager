@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import {
@@ -11,7 +11,9 @@ import {
 } from "./Attachments";
 import { Avatar } from "@/components/ui";
 import { useToast } from "@/components/Toast";
+import { useShell } from "@/components/shell/context";
 import { TimeAgo } from "@/components/TimeAgo";
+import { Markdown } from "@/components/Markdown";
 
 export type Comment = {
   id: string;
@@ -33,6 +35,11 @@ export type ActivityRow = {
 
 type Tab = "activity" | "comments" | "history";
 
+/** The handle the server resolves a mention against — the local part of the email. */
+function handleOf(member: { email: string }) {
+  return member.email.split("@")[0].toLowerCase();
+}
+
 export function Discussion({
   issueKey,
   comments,
@@ -49,6 +56,53 @@ export function Discussion({
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<AttachmentRow[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const { members, user } = useShell();
+  const box = useRef<HTMLTextAreaElement>(null);
+  const [cursor, setCursor] = useState(0);
+  const [highlight, setHighlight] = useState(0);
+
+  /**
+   * The @ picker. Mentions are resolved server-side by handle, so typing one
+   * from memory and getting it wrong failed silently — no error, no
+   * notification, no way to tell. This makes the handle something you pick.
+   */
+  const mention = useMemo(() => {
+    // Derived from state, not from box.current.selectionStart — reading the DOM
+    // caret during render gives whatever it was before the last edit committed,
+    // which left the picker open after a mention had already been inserted.
+    if (cursor < 0) return null;
+    const upto = draft.slice(0, cursor);
+    // Only an @ that starts a word, and only before a space is typed.
+    const match = /(?:^|\s)@([a-zA-Z0-9._-]*)$/.exec(upto);
+    if (!match) return null;
+
+    const needle = match[1].toLowerCase();
+    const matches = members
+      .filter((m) => m.id !== user.id)
+      .filter((m) => !needle || handleOf(m).startsWith(needle) || m.name.toLowerCase().includes(needle))
+      .slice(0, 6);
+
+    return matches.length
+      ? { query: match[1], start: cursor - match[1].length - 1, matches }
+      : null;
+  }, [draft, cursor, members, user.id]);
+
+  useEffect(() => setHighlight(0), [mention?.query]);
+
+  function insertMention(member: { name: string; email: string }) {
+    const el = box.current;
+    if (!el || !mention) return;
+    const handle = handleOf(member);
+    const at = mention.start + handle.length + 2;
+    setDraft(`${draft.slice(0, mention.start)}@${handle} ${draft.slice(cursor)}`);
+    // Move the caret in state first so the picker closes on this render, then
+    // put the real one in the right place once the new value has painted.
+    setCursor(at);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(at, at);
+    });
+  }
   const { upload, busy: uploading } = useUploader(issueKey);
 
   useEffect(() => {
@@ -155,7 +209,7 @@ export function Discussion({
                   {!row.comment.automated && (
                     <b>{row.comment.author?.name.split(" ")[0] ?? "Someone"} — </b>
                   )}
-                  <Mentions body={row.comment.body} />
+                  <Markdown body={row.comment.body} />
                 </div>
                 {row.comment.attachments && row.comment.attachments.length > 0 && (
                   <div style={{ marginTop: 8 }}>
@@ -201,6 +255,7 @@ export function Discussion({
           display: "flex",
           flexDirection: "column",
           gap: 10,
+          position: "relative",
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -208,13 +263,63 @@ export function Discussion({
           attach([...e.dataTransfer.files]);
         }}
       >
+        {mention && (
+          <div className="mention-menu" role="listbox" aria-label="Mention someone">
+            {mention.matches.map((member, i) => (
+              <button
+                key={member.id}
+                role="option"
+                aria-selected={i === highlight}
+                data-active={i === highlight}
+                onMouseDown={(e) => {
+                  // mousedown, not click — click would blur the textarea first.
+                  e.preventDefault();
+                  insertMention(member);
+                }}
+                onMouseEnter={() => setHighlight(i)}
+              >
+                <Avatar name={member.name} hue={member.avatarHue} size={20} />
+                <span className="grow truncate">{member.name}</span>
+                <span className="mono mention-handle">@{handleOf(member)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
         <textarea
+          ref={box}
           rows={1}
           placeholder="Write a comment… use @name to pull someone in"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setCursor(e.target.selectionStart ?? 0);
+          }}
+          onSelect={(e) => setCursor((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
           onKeyDown={(e) => {
+            if (mention) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setHighlight((h) => (h + 1) % mention.matches.length);
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setHighlight((h) => (h - 1 + mention.matches.length) % mention.matches.length);
+                return;
+              }
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                insertMention(mention.matches[highlight]);
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setCursor(-1);
+                return;
+              }
+            }
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               send();
@@ -265,20 +370,3 @@ export function Discussion({
   );
 }
 
-/** Renders @handles in accent so a mention reads as one. */
-function Mentions({ body }: { body: string }) {
-  const parts = body.split(/(@[a-zA-Z0-9._-]{2,40})/g);
-  return (
-    <>
-      {parts.map((part, i) =>
-        part.startsWith("@") ? (
-          <span key={i} style={{ color: "var(--accent)" }}>
-            {part}
-          </span>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </>
-  );
-}

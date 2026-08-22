@@ -7,6 +7,7 @@ import { useShell } from "@/components/shell/context";
 import { STATUS_LABEL } from "@/lib/constants";
 import { IssueStatus } from "@/lib/types";
 import type { Insights as InsightsData } from "@/lib/insights";
+import type { EstimateAccuracy } from "@/lib/focus";
 
 const STATUS_TONE: Record<string, string> = {
   IN_PROGRESS: "var(--accent)",
@@ -21,10 +22,13 @@ export function Insights({
   data,
   projectKey,
   scopeLabel,
+  accuracy,
 }: {
   data: InsightsData;
   projectKey: string | null;
   scopeLabel: string;
+  /** Only ever the viewer's own figures — see estimateAccuracy(). */
+  accuracy?: EstimateAccuracy;
 }) {
   const router = useRouter();
   const { projects } = useShell();
@@ -93,6 +97,40 @@ export function Insights({
       </header>
 
       <div className="panel-body" style={{ gap: 15, padding: "4px 22px 22px" }}>
+        {accuracy && accuracy.sampled > 0 && (
+          <section className="card accuracy">
+            <div className="row-flex">
+              <div>
+                <div className="accuracy-title">What a point costs you</div>
+                <div className="accuracy-sub">
+                  From {accuracy.sampled} finished issue{accuracy.sampled === 1 ? "" : "s"} you
+                  logged time on. Yours alone — nobody else sees this, and there is no team version.
+                </div>
+              </div>
+              <div className="grow" />
+              <div className="accuracy-figure">
+                {Math.floor((accuracy.medianMinutesPerPoint ?? 0) / 60) > 0
+                  ? `${Math.floor((accuracy.medianMinutesPerPoint ?? 0) / 60)}h ${(accuracy.medianMinutesPerPoint ?? 0) % 60}m`
+                  : `${accuracy.medianMinutesPerPoint}m`}
+                <span>median per point</span>
+              </div>
+            </div>
+
+            {accuracy.outliers.length > 0 && (
+              <div className="accuracy-outliers">
+                <div className="eyebrow">Took the longest against that</div>
+                {accuracy.outliers.map((row) => (
+                  <Link key={row.key} href={`/issues/${row.key}`} className="accuracy-row">
+                    <span className="mono accuracy-key">{row.key}</span>
+                    <span className="truncate grow">{row.title}</span>
+                    <span className="mono accuracy-ratio">{row.ratio.toFixed(1)}×</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         <div className="stats">
           <div className="stat stat-lead">
             <div className="stat-label">Velocity</div>

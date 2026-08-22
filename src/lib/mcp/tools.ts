@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "../db";
 import { HttpError } from "../auth";
+import { IssueStatus } from "../types";
 import { createIssue, updateIssue } from "../issues";
 import { nextRank } from "../rank";
 import { loadPublicRoadmap } from "../roadmap";
@@ -51,6 +52,14 @@ const num = (args: Record<string, unknown>, key: string) => {
   const value = args[key];
   return typeof value === "number" ? value : undefined;
 };
+
+/**
+ * The real statuses, taken from the enum rather than typed out — the tool
+ * descriptions once claimed a BLOCKED column that does not exist, which made
+ * move_issue fail on a value it had advertised itself.
+ */
+const STATUSES = Object.values(IssueStatus);
+const STATUS_LIST = STATUSES.join(", ");
 
 const COLOURS = ["lime", "blue", "amber", "violet", "red", "slate"];
 
@@ -152,7 +161,7 @@ export const TOOLS: Tool[] = [
         project: { type: "string", description: "Project key, e.g. WEB" },
         status: {
           type: "string",
-          description: "TRIAGE, TODO, IN_PROGRESS, IN_REVIEW, BLOCKED or DONE",
+          description: `One of ${STATUS_LIST}`,
         },
         assignee: { type: "string", description: "Member name or email, or 'none'" },
         query: { type: "string", description: "Free text over titles and keys" },
@@ -295,7 +304,7 @@ export const TOOLS: Tool[] = [
         orderBy: { rank: "asc" },
       });
 
-      const columns = ["TRIAGE", "TODO", "IN_PROGRESS", "IN_REVIEW", "BLOCKED", "DONE"];
+      const columns = STATUSES;
       const out = columns.map((column) => {
         const inColumn = issues.filter((i) => i.status === column);
         const points = inColumn.reduce((n, i) => n + (i.estimate ?? 0), 0);
@@ -789,7 +798,7 @@ export const TOOLS: Tool[] = [
         key: { type: "string" },
         status: {
           type: "string",
-          description: "TRIAGE, TODO, IN_PROGRESS, IN_REVIEW, BLOCKED or DONE",
+          description: `One of ${STATUS_LIST}`,
         },
       },
       required: ["key", "status"],
