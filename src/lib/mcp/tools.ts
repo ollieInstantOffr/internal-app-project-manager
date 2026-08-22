@@ -26,6 +26,11 @@ type JsonSchema = {
   required?: string[];
 };
 
+/** A content block in a tool result, as the MCP spec shapes them. */
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
 export type Tool = {
   name: string;
   title: string;
@@ -36,7 +41,10 @@ export type Tool = {
   modes: Record<Level, ToolMode>;
   /** Plain English, for the approval card and the action log. */
   summarise: (args: Record<string, unknown>) => string;
-  run: (ctx: ToolContext, args: Record<string, unknown>) => Promise<{ text: string; targetKey?: string }>;
+  run: (
+    ctx: ToolContext,
+    args: Record<string, unknown>,
+  ) => Promise<{ text: string; blocks?: ContentBlock[]; targetKey?: string }>;
 };
 
 const READ: Record<Level, ToolMode> = { READ_ONLY: "ALLOW", HELPER: "ALLOW", FULL: "ALLOW" };
@@ -60,6 +68,9 @@ const num = (args: Record<string, unknown>, key: string) => {
  */
 const STATUSES = Object.values(IssueStatus);
 const STATUS_LIST = STATUSES.join(", ");
+
+/** Types worth handing back as text rather than describing. */
+const TEXTUAL = new Set(["text/plain", "text/csv", "application/json"]);
 
 const COLOURS = ["lime", "blue", "amber", "violet", "red", "slate"];
 
@@ -547,6 +558,148 @@ export const TOOLS: Tool[] = [
     run: async (ctx, args) => {
       const { readRepoFile } = await import("./repo-tools");
       return readRepoFile(ctx, str(args, "project"), str(args, "path"));
+    },
+  },
+
+  {
+    name: "list_attachments",
+    title: "List an issue's files",
+    description: "The files attached to an issue, with their type and size.",
+    group: "Read",
+    inputSchema: {
+      type: "object",
+      properties: { key: { type: "string" } },
+      required: ["key"],
+    },
+    modes: READ,
+    summarise: (a) => `list files on ${str(a, "key").toUpperCase()}`,
+    run: async (ctx, args) => {
+      const issue = await issueFor(ctx, str(args, "key"));
+      const files = await db.attachment.findMany({
+        where: { issueId: issue.id },
+        orderBy: { createdAt: "asc" },
+        include: { uploadedBy: { select: { name: true } } },
+      });
+      if (!files.length) return { text: `No files on ${issue.key}.`, targetKey: issue.key };
+
+      return {
+        text: files
+          .map(
+            (f) =>
+              `${f.filename} · ${f.mimeType} · ${Math.round(f.size / 1024)} KB · added by ${f.uploadedBy?.name ?? "someone"}`,
+          )
+          .join("\n"),
+        targetKey: issue.key,
+      };
+    },
+  },
+  {
+    name: "read_attachment",
+    title: "Read a file on an issue",
+    description:
+      "Returns a file attached to an issue. Images come back as images; text comes back as text. Identify it by filename.",
+    group: "Read",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string" },
+        filename: { type: "string", description: "As shown by list_attachments" },
+      },
+      required: ["key", "filename"],
+    },
+    modes: READ,
+    summarise: (a) => `read ${str(a, "filename")} on ${str(a, "key").toUpperCase()}`,
+    run: async (ctx, args) => {
+      const issue = await issueFor(ctx, str(args, "key"));
+      const wanted = str(args, "filename").toLowerCase();
+      const files = await db.attachment.findMany({ where: { issueId: issue.id } });
+      const file =
+        files.find((f) => f.filename.toLowerCase() === wanted) ??
+        files.find((f) => f.filename.toLowerCase().includes(wanted));
+      if (!file) throw new HttpError(404, `No file called "${str(args, "filename")}" on ${issue.key}`);
+
+      const { load, canRenderInline } = await import("../attachments");
+      const bytes = await load(ctx.orgId, file.storageKey, file.storage);
+
+      if (canRenderInline(file.mimeType)) {
+        // Inlining a large image would blow up the JSON-RPC response for no gain.
+        if (bytes.byteLength > 5 * 1024 * 1024) {
+          return {
+            text: `${file.filename} is ${Math.round(file.size / 1024 / 1024)} MB — too large to read inline.`,
+            targetKey: issue.key,
+          };
+        }
+        return {
+          text: `${file.filename} (${file.mimeType}) from ${issue.key}`,
+          blocks: [{ type: "image", data: bytes.toString("base64"), mimeType: file.mimeType }],
+          targetKey: issue.key,
+        };
+      }
+
+      if (TEXTUAL.has(file.mimeType)) {
+        const text = bytes.toString("utf8");
+        const clipped = text.length > 100_000;
+        return {
+          text: `${file.filename}\n\n${clipped ? `${text.slice(0, 100_000)}\n\n… truncated at 100 KB` : text}`,
+          targetKey: issue.key,
+        };
+      }
+
+      return {
+        text: `${file.filename} is ${file.mimeType}, which can't be read as text or shown as an image.`,
+        targetKey: issue.key,
+      };
+    },
+  },
+  {
+    name: "add_attachment",
+    title: "Attach a file to an issue",
+    description:
+      "Attaches a file to an issue — a log, a diff, a generated report. Content must be base64. Same 10 MB limit and allowed types as the app.",
+    group: "Write",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string" },
+        filename: { type: "string" },
+        mimeType: { type: "string", description: "e.g. text/plain, application/json, image/png" },
+        contentBase64: { type: "string", description: "The file's bytes, base64 encoded" },
+      },
+      required: ["key", "filename", "mimeType", "contentBase64"],
+    },
+    modes: HELPER_FREE,
+    summarise: (a) => `attach ${str(a, "filename")} to ${str(a, "key").toUpperCase()}`,
+    run: async (ctx, args) => {
+      const issue = await issueFor(ctx, str(args, "key"));
+      const { store, isAllowed, safeFilename, MAX_BYTES } = await import("../attachments");
+
+      const mimeType = str(args, "mimeType");
+      if (!isAllowed(mimeType)) throw new HttpError(415, `${mimeType} isn't an allowed file type`);
+
+      const raw = str(args, "contentBase64").replace(/^data:[^,]+,/, "");
+      const bytes = Buffer.from(raw, "base64");
+      if (!bytes.byteLength) throw new HttpError(400, "That base64 content decoded to nothing");
+      if (bytes.byteLength > MAX_BYTES) throw new HttpError(413, "That file is over 10 MB");
+
+      // Goes to whichever backend the org is configured for, same as an upload
+      // through the app.
+      const stored = await store(ctx.orgId, bytes, mimeType);
+      const attachment = await db.attachment.create({
+        data: {
+          filename: safeFilename(str(args, "filename")),
+          mimeType,
+          size: stored.size,
+          storageKey: stored.storageKey,
+          storage: stored.storage,
+          issueId: issue.id,
+          uploadedById: ctx.actorId,
+        },
+      });
+
+      return {
+        text: `Attached ${attachment.filename} (${Math.round(attachment.size / 1024)} KB) to ${issue.key}.`,
+        targetKey: issue.key,
+      };
     },
   },
 

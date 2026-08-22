@@ -5,7 +5,7 @@ import { notify } from "../activity";
 import { publish } from "../events";
 import { NotificationKind, Urgency } from "../types";
 import { FORBIDDEN_TOOLS, type Level } from "./levels";
-import { TOOL_BY_NAME, type Tool, type ToolContext } from "./tools";
+import { TOOL_BY_NAME, type ContentBlock, type Tool, type ToolContext } from "./tools";
 
 export const APPROVAL_TTL_MINUTES = 60;
 
@@ -113,7 +113,7 @@ async function overRate(connection: Connection) {
   return used >= connection.assistant.ratePerHour;
 }
 
-export type ToolResult = { text: string; isError?: boolean };
+export type ToolResult = { text: string; blocks?: ContentBlock[]; isError?: boolean };
 
 export async function callTool(
   connection: Connection,
@@ -198,7 +198,7 @@ export async function callTool(
       outcome: tool.group === "Read" ? "READ" : "AUTO",
       targetKey: result.targetKey,
     });
-    return { text: result.text };
+    return { text: result.text, blocks: result.blocks };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Something went wrong";
     await log({

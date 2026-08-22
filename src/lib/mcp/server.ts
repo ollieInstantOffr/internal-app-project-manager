@@ -94,7 +94,11 @@ async function dispatch(connection: Connection, request: JsonRpcRequest) {
       const result = await callTool(connection, name, args);
       // Tool failures are results, not protocol errors — the model needs to read them.
       return rpcResult(id, {
-        content: [{ type: "text", text: result.text }],
+        content: [
+          { type: "text", text: result.text },
+          // A screenshot is worth more to the model than a description of one.
+          ...(result.blocks ?? []),
+        ],
         isError: !!result.isError,
       });
     }
