@@ -13,6 +13,8 @@
     "docker:reset": "docker compose down -v && docker compose up -d --build",
     "docker:logs": "docker compose logs -f web",
     "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "node scripts/migrate.mjs",
     "db:studio": "prisma studio",
     "emails": "tsx scripts/preview-emails.ts"
   },

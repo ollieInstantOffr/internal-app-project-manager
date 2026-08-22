@@ -27,7 +27,7 @@ COPY package.json prisma.config.ts tsconfig.json ./
 COPY prisma ./prisma
 COPY scripts ./scripts
 COPY --from=builder /app/src/generated ./src/generated
-CMD ["npx", "prisma", "db", "push"]
+CMD ["node", "scripts/migrate.mjs"]
 
 # ── runner ────────────────────────────────────────────────────
 FROM node:24-alpine AS runner

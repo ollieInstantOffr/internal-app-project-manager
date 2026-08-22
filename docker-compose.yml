@@ -18,8 +18,9 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: syncs the schema. The app starts empty — you create the first
-  # account through sign-up.
+  # One-shot: applies migrations. Baselines a database that predates the
+  # migrations directory, then deploys. The app starts empty — you create the
+  # first account through sign-up.
   migrate:
     build:
       context: .
@@ -31,7 +32,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://arc:${POSTGRES_PASSWORD}@db:5432/arc?schema=public
-    command: npx prisma db push
+    command: node scripts/migrate.mjs
 
   web:
     build:
