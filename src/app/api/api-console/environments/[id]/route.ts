@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { handler, json, fail, parseBody, requireApiContext } from "@/lib/api";
 import { environmentUpdateSchema } from "@/lib/api-console/validators";
 import { maskEnvironment } from "@/lib/api-console/sync";
+import { encryptOptional } from "@/lib/crypto";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,7 +35,7 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
         : body.authToken === undefined
           ? // An omitted token keeps the stored one, so the edit form can leave it blank.
             {}
-          : { authToken: body.authToken || null }),
+          : { authToken: encryptOptional(body.authToken) }),
     },
   });
 

@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "./db";
+import { decryptSecret, encryptOptional } from "./crypto";
 
 /** Refresh a little early, so a call that takes a moment can't straddle expiry. */
 const SKEW_SECONDS = 120;
@@ -22,8 +23,9 @@ type TokenResponse = {
 export function tokenFields(json: TokenResponse) {
   const now = Date.now();
   return {
-    githubToken: json.access_token ?? null,
-    githubRefreshToken: json.refresh_token ?? null,
+    // Encrypted on the way in, so nothing writes a bare token to the database.
+    githubToken: encryptOptional(json.access_token),
+    githubRefreshToken: encryptOptional(json.refresh_token),
     githubTokenExpiresAt: json.expires_in ? new Date(now + json.expires_in * 1000) : null,
     githubRefreshExpiresAt: json.refresh_token_expires_in
       ? new Date(now + json.refresh_token_expires_in * 1000)
@@ -82,9 +84,18 @@ export async function githubTokenFor(userOrId: string | TokenRow): Promise<strin
       : userOrId;
 
   if (!user?.githubToken) return null;
-  if (!expired(user)) return user.githubToken;
 
-  if (!user.githubRefreshToken) {
+  // A value that can't be decrypted is treated as no connection at all, so the
+  // person is asked to reconnect rather than hitting GitHub with nonsense.
+  const access = decryptSecret(user.githubToken);
+  if (!access) {
+    await clearGithub(user.id);
+    return null;
+  }
+  if (!expired(user)) return access;
+
+  const refresh = decryptSecret(user.githubRefreshToken);
+  if (!refresh) {
     // Expired with nothing to refresh from: the connection is dead.
     await clearGithub(user.id);
     return null;
@@ -101,7 +112,7 @@ export async function githubTokenFor(userOrId: string | TokenRow): Promise<strin
       client_id: process.env.GITHUB_CLIENT_ID,
       client_secret: process.env.GITHUB_CLIENT_SECRET,
       grant_type: "refresh_token",
-      refresh_token: user.githubRefreshToken,
+      refresh_token: refresh,
     }),
   });
 
@@ -125,7 +136,9 @@ export async function githubTokenFor(userOrId: string | TokenRow): Promise<strin
     },
   });
 
-  return fields.githubToken;
+  // tokenFields() encrypts, so hand back what GitHub actually sent rather than
+  // the stored ciphertext.
+  return json.access_token;
 }
 
 /** Forgets the connection so the UI offers "Connect GitHub" again. */

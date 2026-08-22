@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { handler, json, fail, parseBody, requireApiContext, projectInOrg } from "@/lib/api";
 import { environmentSchema } from "@/lib/api-console/validators";
 import { maskEnvironment } from "@/lib/api-console/sync";
+import { encryptOptional } from "@/lib/crypto";
 
 export const POST = handler(async (req: Request) => {
   const ctx = await requireApiContext(req);
@@ -23,7 +24,7 @@ export const POST = handler(async (req: Request) => {
       color: body.color ?? (body.kind === "PR_PREVIEW" ? "lime" : "amber"),
       variables: (body.variables ?? undefined) as never,
       authType: body.authType ?? "NONE",
-      authToken: body.authToken || null,
+      authToken: encryptOptional(body.authToken),
       authUsername: body.authUsername || null,
       authName: body.authName || null,
     },

@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "../db";
 import { discoverApi } from "./discover";
 import { RANK_STEP } from "../rank";
+import { secretHint } from "../crypto";
 
 export type SyncOutcome = {
   found: boolean;
@@ -180,6 +181,6 @@ export function maskEnvironment<T extends { authToken: string | null }>(environm
   return {
     ...rest,
     authTokenSet: !!authToken,
-    authTokenHint: authToken ? `••••${authToken.slice(-4)}` : null,
+    authTokenHint: secretHint(authToken),
   };
 }

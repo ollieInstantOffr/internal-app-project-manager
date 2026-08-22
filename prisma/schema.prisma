@@ -19,7 +19,8 @@ model User {
   avatarHue     Int       @default(285)
   githubLogin   String?
   githubId      String?   @unique
-  /// OAuth token used to list repos and import issues. Encrypt at rest in production.
+  /// OAuth token for listing repos and importing issues. Encrypted at rest —
+  /// always read it through githubTokenFor(), never straight off the row.
   githubToken   String?
   /// Only issued when the GitHub App expires user tokens; absent for OAuth Apps.
   githubRefreshToken    String?

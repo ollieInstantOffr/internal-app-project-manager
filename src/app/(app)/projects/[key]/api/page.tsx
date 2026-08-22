@@ -5,6 +5,7 @@ import { ensureDefaultEnvironments } from "@/lib/api-console/sync";
 import { appUrl } from "@/lib/app-url";
 import { ApiConsole } from "@/components/api/ApiConsole";
 import type { ConsoleState } from "@/components/api/types";
+import { secretHint } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,7 @@ export default async function ApiConsolePage({ params }: { params: Promise<{ key
       authUsername: e.authUsername,
       authName: e.authName,
       authTokenSet: !!e.authToken,
-      authTokenHint: e.authToken ? `••••${e.authToken.slice(-4)}` : null,
+      authTokenHint: secretHint(e.authToken),
     })),
     latestRun: latestRun
       ? {

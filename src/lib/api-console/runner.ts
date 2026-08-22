@@ -3,6 +3,7 @@ import { db } from "../db";
 import { HttpError } from "../auth";
 import { evaluateAssertions, type AssertionResult } from "./assertions";
 import type { HttpMethod } from "@/generated/prisma/enums";
+import { decryptSecret } from "../crypto";
 
 const TIMEOUT_MS = 20_000;
 const MAX_BODY_CHARS = 200_000;
@@ -292,7 +293,7 @@ export function authOf(environment: {
 }): EnvironmentAuth {
   return {
     authType: environment.authType as EnvironmentAuth["authType"],
-    authToken: environment.authToken,
+    authToken: decryptSecret(environment.authToken),
     authUsername: environment.authUsername,
     authName: environment.authName,
   };
