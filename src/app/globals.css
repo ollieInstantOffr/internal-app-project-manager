@@ -3752,3 +3752,64 @@ textarea.pub-input { resize: vertical; min-height: 74px; line-height: 1.6; }
   font: 500 10.5px var(--sans);
   color: var(--muted);
 }
+
+/* ── issue discussion ────────────────────────────────────────
+   The issue body already scrolls. This used to add a scroller of
+   its own inside it, so the thread only ever got the sliver left
+   below the description, subtasks and files — long comments were
+   clipped mid-sentence.
+   ──────────────────────────────────────────────────────────── */
+
+.discussion { display: flex; flex-direction: column; gap: 12px; }
+.discussion .tabs { align-items: center; }
+
+.discussion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.discussion-expand {
+  font: 500 11px var(--sans);
+  color: var(--muted);
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  flex: none;
+}
+.discussion-expand:hover { background: var(--surface); color: var(--text); }
+
+/* Expanded: a full-height reader for a long thread. */
+.discussion[data-expanded] {
+  position: fixed;
+  inset: 0;
+  z-index: 105;
+  background: var(--panel);
+  padding: 20px 24px 24px;
+  gap: 14px;
+  overflow: hidden;
+}
+.discussion[data-expanded] .tabs { flex: none; }
+.discussion[data-expanded] .discussion-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  /* Long-form reading wants a measure, not the full width of a monitor. */
+  max-width: 900px;
+  width: 100%;
+  align-self: center;
+}
+.discussion[data-expanded] > *:not(.tabs):not(.discussion-list) {
+  flex: none;
+  max-width: 900px;
+  width: 100%;
+  align-self: center;
+}
+.discussion[data-expanded] .discussion-expand {
+  background: var(--raised);
+  color: var(--text-2);
+}
+
+@media (max-width: 767px) {
+  .discussion[data-expanded] { padding: 14px 16px 16px; }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import {
@@ -48,7 +48,20 @@ export function Discussion({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<AttachmentRow[]>([]);
+  const [expanded, setExpanded] = useState(false);
   const { upload, busy: uploading } = useUploader(issueKey);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExpanded(false);
+    document.addEventListener("keydown", onKey);
+    // The page behind must not scroll while the reader is over it.
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [expanded]);
 
   async function attach(files: File[]) {
     const added = await upload(files);
@@ -88,7 +101,7 @@ export function Discussion({
         : merged;
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, minHeight: 0 }}>
+    <section className="discussion" data-expanded={expanded || undefined}>
       <div className="tabs">
         <button data-active={tab === "activity"} onClick={() => setTab("activity")}>
           Activity
@@ -99,9 +112,20 @@ export function Discussion({
         <button data-active={tab === "history"} onClick={() => setTab("history")}>
           History
         </button>
+
+        <span className="grow" />
+
+        <button
+          className="discussion-expand"
+          onClick={() => setExpanded((v) => !v)}
+          aria-pressed={expanded}
+          title={expanded ? "Back to the issue" : "Read the whole thread"}
+        >
+          {expanded ? "Collapse" : "Expand"}
+        </button>
       </div>
 
-      <div className="scroll-y" style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
+      <div className="discussion-list">
         {rows.length === 0 && (
           <div style={{ color: "var(--muted)", fontSize: 12 }}>Nothing here yet.</div>
         )}
