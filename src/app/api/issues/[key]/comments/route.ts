@@ -30,12 +30,21 @@ export const POST = handler(async (req: Request, { params }: Ctx) => {
   const ctx = await requireApiContext(req);
   const { key } = await params;
   const issue = await issueInOrg(ctx.orgId, key);
-  const { body } = await parseBody(req, commentSchema);
+  const { body, attachmentIds } = await parseBody(req, commentSchema);
 
   const comment = await db.comment.create({
     data: { issueId: issue.id, authorId: ctx.userId, body },
     include: { author: { select: { id: true, name: true, avatarHue: true } } },
   });
+
+  // Files are uploaded before the comment exists, so they're claimed here.
+  // Scoped to this issue, so a comment can't adopt somebody else's upload.
+  if (attachmentIds?.length) {
+    await db.attachment.updateMany({
+      where: { id: { in: attachmentIds }, issueId: issue.id, commentId: null },
+      data: { commentId: comment.id },
+    });
+  }
 
   await addWatcher(issue.id, ctx.userId);
   await logActivity({

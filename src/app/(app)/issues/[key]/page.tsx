@@ -28,7 +28,10 @@ export default async function IssuePage({ params }: { params: Promise<{ key: str
     db.comment.findMany({
       where: { issueId: issue.id },
       orderBy: { createdAt: "asc" },
-      include: { author: { select: { id: true, name: true, avatarHue: true } } },
+      include: {
+        author: { select: { id: true, name: true, avatarHue: true } },
+        attachments: { orderBy: { createdAt: "asc" } },
+      },
     }),
     db.activity.findMany({
       where: { issueId: issue.id },
@@ -48,6 +51,10 @@ export default async function IssuePage({ params }: { params: Promise<{ key: str
 
   const index = siblings.findIndex((s) => s.key === issue.key);
   const focusMinutes = await loggedOnIssue(user.id, issue.id);
+  const attachments = await db.attachment.findMany({
+    where: { issueId: issue.id, commentId: null },
+    orderBy: { createdAt: "asc" },
+  });
 
   return (
     <>
@@ -63,6 +70,13 @@ export default async function IssuePage({ params }: { params: Promise<{ key: str
       />
       <IssueDetail
         focusMinutes={focusMinutes}
+        attachments={attachments.map((a) => ({
+          id: a.id,
+          filename: a.filename,
+          mimeType: a.mimeType,
+          size: a.size,
+          createdAt: a.createdAt.toISOString(),
+        }))}
       issue={serializeIssue(issue)}
       projectName={issue.project.name}
       subtasks={issue.subtasks.map((s) => ({
@@ -77,6 +91,13 @@ export default async function IssuePage({ params }: { params: Promise<{ key: str
         automated: c.automated,
         createdAt: c.createdAt.toISOString(),
         author: c.author,
+        attachments: c.attachments.map((a) => ({
+          id: a.id,
+          filename: a.filename,
+          mimeType: a.mimeType,
+          size: a.size,
+          createdAt: a.createdAt.toISOString(),
+        })),
       }))}
       activities={activities.map((a) => ({
         id: a.id,

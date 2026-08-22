@@ -117,7 +117,11 @@ export const subtaskUpdateSchema = z.object({
   assigneeId: z.string().optional().nullable(),
 });
 
-export const commentSchema = z.object({ body: z.string().trim().min(1).max(10000) });
+export const commentSchema = z.object({
+  body: z.string().trim().min(1).max(10000),
+  /** Files already uploaded against this issue, to be shown under the comment. */
+  attachmentIds: z.array(z.string()).max(10).optional(),
+});
 
 export const epicSchema = z.object({
   projectId: z.string().min(1),

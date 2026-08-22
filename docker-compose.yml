@@ -56,6 +56,11 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
       CRON_SECRET: ${CRON_SECRET:-}
+      ATTACHMENTS_DIR: /data/attachments
+    volumes:
+      # Uploads live outside the image, so a rebuild doesn't take them with it.
+      - arc-uploads:/data/attachments
 
 volumes:
   arc-pgdata:
+  arc-uploads:

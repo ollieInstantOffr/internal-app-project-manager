@@ -13,6 +13,12 @@ import { STATUS_LABEL, STATUS_ORDER, accent } from "@/lib/constants";
 import { Subtasks, type Subtask } from "./Subtasks";
 import { Discussion, type Comment, type ActivityRow } from "./Discussion";
 import { IssueSidebar } from "./IssueSidebar";
+import {
+  AttachmentList,
+  DropZone,
+  useUploader,
+  type AttachmentRow,
+} from "./Attachments";
 import type { BoardIssue, BoardEpic, BoardSprint, BoardLabel } from "@/components/board/types";
 
 const STATUS_STYLE: Record<IssueStatus, React.CSSProperties> = {
@@ -34,6 +40,7 @@ export function IssueDetail({
   neighbours,
   projectName,
   focusMinutes,
+  attachments,
 }: {
   issue: BoardIssue;
   subtasks: Subtask[];
@@ -45,12 +52,34 @@ export function IssueDetail({
   neighbours: { prev: string | null; next: string | null };
   projectName: string;
   focusMinutes: number;
+  /** Files on the issue itself; anything pasted into a comment shows there. */
+  attachments: AttachmentRow[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const { role } = useShell();
   const [local, setLocal] = useState(issue);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [files, setFiles] = useState<AttachmentRow[]>(attachments);
+  const { upload, busy: uploading } = useUploader(issue.key);
+
+  useEffect(() => setFiles(attachments), [attachments]);
+
+  async function attach(chosen: File[]) {
+    const added = await upload(chosen);
+    if (added.length) setFiles((prev) => [...prev, ...added]);
+  }
+
+  async function detach(attachment: AttachmentRow) {
+    setFiles((prev) => prev.filter((a) => a.id !== attachment.id));
+    try {
+      await api.del(`/api/attachments/${attachment.id}`);
+      router.refresh();
+    } catch {
+      toast("Couldn't remove that file");
+      router.refresh();
+    }
+  }
   const isAdmin = role === Role.OWNER || role === Role.ADMIN;
 
   async function archive() {
@@ -352,6 +381,12 @@ export function IssueDetail({
             />
 
             <Subtasks issueKey={local.key} subtasks={subtasks} />
+
+            <section style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              <div className="eyebrow">Files {files.length > 0 ? files.length : ""}</div>
+              <AttachmentList attachments={files} onRemove={detach} />
+              <DropZone onFiles={attach} busy={uploading} />
+            </section>
 
             <Discussion issueKey={local.key} comments={comments} activities={activities} />
           </div>

@@ -52,6 +52,7 @@ model User {
   assistant      Assistant?
   focusSessions  FocusSession[]
   focusPref      FocusPref?
+  attachments    Attachment[]
   prefs          NotificationPref?
   magicLinks     MagicLink[]
 
@@ -324,6 +325,7 @@ model Issue {
   blockedBy     IssueLink[]    @relation("blocked")
   apiFailures   ApiRunResult[]
   fileRefs      IssueFileRef[]
+  attachments   Attachment[]
   taskRefs      Task[]         @relation("taskContext")
   focusSessions FocusSession[] @relation("focusContext")
 
@@ -382,6 +384,7 @@ model Comment {
   updatedAt DateTime @updatedAt
 
   @@index([issueId])
+  attachments Attachment[]
 }
 
 model Watcher {
@@ -1133,4 +1136,32 @@ model AgentAction {
   createdAt DateTime     @default(now())
 
   @@index([assistantId, createdAt])
+}
+
+
+// ─────────────────────────────────────────── attachments
+
+/// A file hanging off an issue, and optionally off one comment on it.
+model Attachment {
+  id       String @id @default(cuid())
+  filename String
+  mimeType String
+  size     Int
+  /// Path within the attachment store; never trusted from the client.
+  storageKey String @unique
+
+  issueId String
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  /// Set once the comment it was pasted into is posted.
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([issueId])
+  @@index([commentId])
 }

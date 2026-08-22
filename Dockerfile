@@ -41,6 +41,11 @@ ENV NODE_ENV=production \
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
+# Uploads live on a named volume. Creating the directory here means Docker
+# copies this ownership onto the volume when it first initialises it —
+# otherwise it lands as root and the non-root app can't write to it.
+RUN mkdir -p /data/attachments && chown -R nextjs:nodejs /data
+
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public

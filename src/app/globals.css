@@ -3605,3 +3605,74 @@ textarea.pub-input { resize: vertical; min-height: 74px; line-height: 1.6; }
   .mcp-row { flex-wrap: wrap; row-gap: 8px; }
   .mcp-tool-row { flex-wrap: wrap; row-gap: 8px; }
 }
+
+/* ── attachments ─────────────────────────────────────────── */
+
+.att-grid { display: flex; flex-wrap: wrap; gap: 9px; }
+.att-grid[data-compact] { gap: 7px; }
+
+.att { position: relative; }
+.att-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px 8px 8px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  max-width: 260px;
+  color: var(--text-2);
+}
+.att-link:hover { background: var(--card); border-color: var(--line-strong); }
+.att-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  flex: none;
+  background: var(--panel-deep);
+}
+.att-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-sm);
+  background: var(--hover-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 9.5px var(--mono);
+  color: var(--text-3);
+  flex: none;
+}
+.att-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.att-name { font: 500 11.5px var(--sans); }
+.att-size { font: 400 10px var(--mono); color: var(--muted-2); }
+.att-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.att-remove:hover { background: var(--danger-bg); color: var(--danger-fg); }
+
+.att-drop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 13px;
+  border-radius: var(--r-md);
+  border: 1.5px dashed var(--line-dash);
+  font: 400 11.5px var(--sans);
+  color: var(--muted-2);
+}
+.att-drop[data-over] { border-color: var(--accent); background: var(--accent-wash); color: var(--text-2); }
+.att-browse { font: 500 11.5px var(--sans); color: var(--accent); }

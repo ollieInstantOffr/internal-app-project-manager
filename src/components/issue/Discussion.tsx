@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
+import {
+  AttachmentList,
+  DropZone,
+  useUploader,
+  type AttachmentRow,
+} from "./Attachments";
 import { Avatar } from "@/components/ui";
 import { useToast } from "@/components/Toast";
 import { TimeAgo } from "@/components/TimeAgo";
@@ -13,6 +19,7 @@ export type Comment = {
   automated: boolean;
   createdAt: string;
   author: { id: string; name: string; avatarHue: number } | null;
+  attachments?: AttachmentRow[];
 };
 
 export type ActivityRow = {
@@ -40,13 +47,25 @@ export function Discussion({
   const [tab, setTab] = useState<Tab>("activity");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<AttachmentRow[]>([]);
+  const { upload, busy: uploading } = useUploader(issueKey);
+
+  async function attach(files: File[]) {
+    const added = await upload(files);
+    if (added.length) setPending((prev) => [...prev, ...added]);
+  }
 
   async function send() {
-    if (!draft.trim()) return;
+    // An upload with no words is still worth posting.
+    if (!draft.trim() && !pending.length) return;
     setBusy(true);
     try {
-      await api.post(`/api/issues/${issueKey}/comments`, { body: draft.trim() });
+      await api.post(`/api/issues/${issueKey}/comments`, {
+        body: draft.trim() || `Attached ${pending.length} file${pending.length === 1 ? "" : "s"}`,
+        attachmentIds: pending.map((a) => a.id),
+      });
       setDraft("");
+      setPending([]);
       router.refresh();
     } catch {
       toast("Couldn't post that comment");
@@ -114,6 +133,11 @@ export function Discussion({
                   )}
                   <Mentions body={row.comment.body} />
                 </div>
+                {row.comment.attachments && row.comment.attachments.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <AttachmentList attachments={row.comment.attachments} compact />
+                  </div>
+                )}
                 <div style={{ font: "400 10px var(--sans)", color: "var(--faint)", marginTop: 5 }}>
                   <TimeAgo at={row.comment.createdAt} />
                   {row.comment.automated ? " · automatic" : ""}
@@ -151,10 +175,16 @@ export function Discussion({
           border: "1px solid var(--hover)",
           padding: "10px 14px",
           display: "flex",
-          alignItems: "flex-end",
+          flexDirection: "column",
           gap: 10,
         }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          attach([...e.dataTransfer.files]);
+        }}
       >
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
         <textarea
           rows={1}
           placeholder="Write a comment… use @name to pull someone in"
@@ -164,6 +194,14 @@ export function Discussion({
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               send();
+            }
+          }}
+          onPaste={(e) => {
+            // How people actually attach a screenshot.
+            const files = [...e.clipboardData.files];
+            if (files.length) {
+              e.preventDefault();
+              attach(files);
             }
           }}
           style={{
@@ -178,8 +216,8 @@ export function Discussion({
             maxHeight: 140,
           }}
         />
-        {draft.trim() ? (
-          <button className="btn btn-primary btn-sm" onClick={send} disabled={busy}>
+        {draft.trim() || pending.length ? (
+          <button className="btn btn-primary btn-sm" onClick={send} disabled={busy || uploading}>
             {busy ? <span className="spin" /> : "Send"}
           </button>
         ) : (
@@ -187,6 +225,17 @@ export function Discussion({
             ⌘⏎
           </span>
         )}
+        </div>
+
+        {(pending.length > 0 || uploading) && (
+          <AttachmentList
+            attachments={pending}
+            compact
+            onRemove={(a) => setPending((prev) => prev.filter((x) => x.id !== a.id))}
+          />
+        )}
+
+        <DropZone onFiles={attach} busy={uploading} label="Drop or paste a file, or" />
       </div>
     </section>
   );
