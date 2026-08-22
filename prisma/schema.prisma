@@ -53,6 +53,7 @@ model User {
   focusSessions  FocusSession[]
   focusPref      FocusPref?
   attachments    Attachment[]
+  savedViews     SavedView[]
   prefs          NotificationPref?
   magicLinks     MagicLink[]
 
@@ -117,6 +118,7 @@ model Organization {
   tokens       ApiToken[]
   tasks        Task[]
   assistants   Assistant[]
+  savedViews   SavedView[]
 }
 
 model Membership {
@@ -188,6 +190,7 @@ model Project {
   sprints      Sprint[]
   labels       Label[]
   roadmapPage  RoadmapPage?
+  savedViews   SavedView[]
   collections  ApiCollection[]
   environments ApiEnvironment[]
   apiRuns      ApiRun[]
@@ -1164,4 +1167,44 @@ model Attachment {
 
   @@index([issueId])
   @@index([commentId])
+}
+
+
+// ─────────────────────────────────────────── saved views
+
+enum ViewScope {
+  BOARD
+  BACKLOG
+}
+
+/// A named set of filters. Private to its owner unless shared with the org.
+model SavedView {
+  id    String    @id @default(cuid())
+  name  String
+  scope ViewScope @default(BOARD)
+
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  /// Null means it applies on every project's board.
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  /// Whatever the screen's filter state is; the shape is the screen's business.
+  filters Json
+
+  /// Visible to the whole org, but still only editable by its owner.
+  shared Boolean @default(false)
+  /// Applied automatically when the owner opens this screen.
+  isDefault Boolean @default(false)
+
+  position  Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, scope])
+  @@index([ownerId])
 }

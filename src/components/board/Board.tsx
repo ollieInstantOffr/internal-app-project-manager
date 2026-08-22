@@ -20,6 +20,7 @@ import { api } from "@/lib/client";
 import { useToast } from "@/components/Toast";
 import { useShell } from "@/components/shell/context";
 import { Avatar, AvatarStack, Popover } from "@/components/ui";
+import { ViewPicker } from "@/components/views/ViewPicker";
 import { NewIssueModal } from "@/components/NewIssueButton";
 import { IssueStatus } from "@/lib/types";
 import { STATUS_ORDER, STATUS_SHORT, accent } from "@/lib/constants";
@@ -72,6 +73,8 @@ export function Board({
     text: "",
   });
   const lastClicked = useRef<string | null>(null);
+
+  const noFilters = !filters.assignee && !filters.epic && !filters.label && !filters.sprint && !filters.text;
 
   useEffect(() => setIssues(initialIssues), [initialIssues]);
 
@@ -321,6 +324,29 @@ export function Board({
         </div>
 
         <div className="grow" />
+
+        <ViewPicker
+          scope="BOARD"
+          projectId={project.id}
+          filters={filters}
+          isEmpty={noFilters}
+          describe={(f) =>
+            [
+              f.text ? `text "${f.text}"` : null,
+              f.assignee ? "assignee" : null,
+              f.epic ? "epic" : null,
+              f.label ? "label" : null,
+              f.sprint ? "sprint" : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          }
+          onApply={(next) =>
+            setFilters(
+              next ?? { assignee: null, epic: null, label: null, sprint: null, text: "" },
+            )
+          }
+        />
 
         <input
           className="input input-sm"

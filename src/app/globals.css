@@ -3676,3 +3676,38 @@ textarea.pub-input { resize: vertical; min-height: 74px; line-height: 1.6; }
 }
 .att-drop[data-over] { border-color: var(--accent); background: var(--accent-wash); color: var(--text-2); }
 .att-browse { font: 500 11.5px var(--sans); color: var(--accent); }
+
+/* ── saved views ─────────────────────────────────────────── */
+
+.view-row { display: flex; align-items: center; gap: 2px; }
+.view-row .menu-item { flex: 1; min-width: 0; }
+.view-owner { font: 400 10px var(--sans); color: var(--muted-2); margin-left: auto; }
+.view-badge {
+  font: 500 9px var(--mono);
+  letter-spacing: 0.05em;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: var(--r-pill);
+  padding: 1px 6px;
+  text-transform: uppercase;
+  flex: none;
+}
+.view-shared-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 5px;
+  vertical-align: middle;
+}
+.view-empty { padding: 8px 10px; font: 400 11px/1.6 var(--sans); color: var(--muted-2); }
+.view-save { padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+.view-describe { font: 400 10px var(--mono); color: var(--muted-2); }
+.view-share-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 400 11px var(--sans);
+  color: var(--text-3);
+}

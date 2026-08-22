@@ -17,6 +17,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { api } from "@/lib/client";
 import { useToast } from "@/components/Toast";
 import { useShell } from "@/components/shell/context";
+import { ViewPicker } from "@/components/views/ViewPicker";
 import { Avatar, Bar, Check, Empty, Popover } from "@/components/ui";
 import { NewIssueModal } from "@/components/NewIssueButton";
 import { BulkBar, type BulkPatch } from "@/components/board/BulkBar";
@@ -283,6 +284,21 @@ export function Backlog({
         </div>
 
         <div className="grow" />
+
+        <ViewPicker
+          scope="BACKLOG"
+          projectId={project.id}
+          filters={{ groupBy, hideDone, showArchived }}
+          isEmpty={groupBy === "epic" && hideDone && !showArchived}
+          describe={(f) =>
+            `group by ${f.groupBy}${f.hideDone ? " · hide done" : ""}${f.showArchived ? " · with archived" : ""}`
+          }
+          onApply={(next) => {
+            setGroupBy((next?.groupBy as GroupBy) ?? "epic");
+            setHideDone(next?.hideDone ?? true);
+            setShowArchived(next?.showArchived ?? false);
+          }}
+        />
 
         <Popover
           align="right"

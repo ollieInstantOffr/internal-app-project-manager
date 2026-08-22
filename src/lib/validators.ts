@@ -315,3 +315,17 @@ export const assistantUpdateSchema = z.object({
 });
 
 export const aiAccessSchema = z.object({ aiAccess: z.boolean() });
+
+/* ── Saved views ─────────────────────────────────────────────────────────── */
+
+export const viewCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name the view").max(48),
+  scope: z.enum(["BOARD", "BACKLOG"]).default("BOARD"),
+  projectId: z.string().optional().nullable(),
+  /** Opaque to the server — the screen owns the shape. */
+  filters: z.record(z.string(), z.unknown()),
+  shared: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
+});
+
+export const viewUpdateSchema = viewCreateSchema.partial().omit({ scope: true });
