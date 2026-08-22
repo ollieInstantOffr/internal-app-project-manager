@@ -29,6 +29,7 @@ const SETTINGS_NAV = [
   { href: "/settings/general", label: "General" },
   { href: "/settings/members", label: "Members" },
   { href: "/settings/integrations", label: "Integrations" },
+  { href: "/settings/mcp", label: "MCP Server" },
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/settings/usage", label: "Usage" },
 ];
@@ -197,6 +198,26 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
             </div>
           )}
         </>
+      )}
+
+      {pathname.startsWith("/settings/mcp") && (
+        <div
+          className="card"
+          style={{
+            marginTop: "auto",
+            borderRadius: 14,
+            background: "var(--surface)",
+            padding: 13,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ font: "600 11.5px var(--display)" }}>Agents are members</div>
+          <div style={{ font: "400 10.5px/1.6 var(--sans)", color: "var(--muted)" }}>
+            Named in the activity feed, revocable in one click.
+          </div>
+        </div>
       )}
 
       {pathname.includes("/code") && (

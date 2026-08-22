@@ -41,6 +41,9 @@ model User {
   taskLists      TaskList[]
   tasks          Task[]             @relation("taskOwner")
   delegatedTasks Task[]             @relation("taskDelegator")
+  /// True for the member row behind an assistant, so the UI can mark it.
+  isAgent        Boolean          @default(false)
+  assistant      Assistant?
   focusSessions  FocusSession[]
   focusPref      FocusPref?
   prefs          NotificationPref?
@@ -89,6 +92,8 @@ model Organization {
   id           String   @id @default(cuid())
   name         String
   slug         String   @unique
+  /// Master switch for the MCP server. Off means no assistant can connect.
+  aiAccess     Boolean  @default(true)
   epicCounter  Int      @default(0)
   githubOrg    String?
   createdAt    DateTime @default(now())
@@ -104,6 +109,7 @@ model Organization {
   rules        AutomationRule[]
   tokens       ApiToken[]
   tasks        Task[]
+  assistants   Assistant[]
 }
 
 model Membership {
@@ -995,4 +1001,130 @@ model RoadmapRequest {
   createdAt DateTime @default(now())
 
   @@index([pageId])
+}
+
+
+// ─────────────────────────────────────────── mcp server
+
+enum AssistantLevel {
+  READ_ONLY
+  HELPER
+  FULL
+  CUSTOM
+}
+
+/// What an assistant may do with one tool.
+enum ToolMode {
+  ALLOW
+  ASK
+  DENY
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+/// How a tool call ended, for "what it actually did".
+enum AgentOutcome {
+  AUTO
+  APPROVED
+  DENIED
+  BLOCKED
+  FAILED
+  READ
+}
+
+/// One connected AI assistant. Its key is its identity; revoking keeps history.
+model Assistant {
+  id    String @id @default(cuid())
+  name  String
+  orgId String
+  org   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  /// The member row its actions are attributed to — never an anonymous key.
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  level AssistantLevel @default(READ_ONLY)
+
+  /// SHA-256 of the bearer token. The raw value is shown once, at creation.
+  tokenHash   String  @unique
+  /// Leading characters, so a key can be recognised without revealing it.
+  tokenHint   String
+  /// Which client it was set up for, for the right config snippet.
+  client      String  @default("OTHER")
+
+  /// Empty means every project in the org.
+  projectIds  String[] @default([])
+  ratePerHour Int      @default(200)
+  /// Hours of silence before the key stops working. 0 means never.
+  idleHours   Int      @default(8)
+
+  enabled    Boolean   @default(true)
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  capabilities AssistantCapability[]
+  approvals    AgentApproval[]
+  actions      AgentAction[]
+
+  @@index([orgId])
+}
+
+/// A per-tool override. Any row here means the assistant is CUSTOM.
+model AssistantCapability {
+  id          String    @id @default(cuid())
+  assistantId String
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  tool        String
+  mode        ToolMode
+
+  @@unique([assistantId, tool])
+  @@index([assistantId])
+}
+
+/// A write the assistant wants to make but isn't trusted to make alone.
+model AgentApproval {
+  id          String    @id @default(cuid())
+  assistantId String
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  tool    String
+  args    Json
+  /// Plain-English description of what would happen.
+  summary String
+
+  status     ApprovalStatus @default(PENDING)
+  decidedAt  DateTime?
+  decidedById String?
+  /// What the tool returned once it was allowed to run.
+  result     Json?
+  error      String?
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([assistantId, status])
+}
+
+/// The audit trail behind "what Claude did today". Outlives the key.
+model AgentAction {
+  id          String    @id @default(cuid())
+  assistantId String
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  tool      String
+  summary   String
+  outcome   AgentOutcome
+  targetKey String?
+  createdAt DateTime     @default(now())
+
+  @@index([assistantId, createdAt])
 }

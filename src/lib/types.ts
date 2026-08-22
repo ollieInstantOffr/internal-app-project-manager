@@ -14,4 +14,8 @@ export {
   TaskStatus,
   DelegationStatus,
   FocusKind,
+  AssistantLevel,
+  ToolMode,
+  ApprovalStatus,
+  AgentOutcome,
 } from "@/generated/prisma/enums";

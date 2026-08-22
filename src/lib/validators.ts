@@ -286,3 +286,28 @@ export const roadmapSubscribeSchema = z.object({
   /** Filled in only by "Tell us what's missing". */
   message: z.string().trim().max(1000).optional().nullable(),
 });
+
+/* ── Assistants (MCP) ────────────────────────────────────────────────────── */
+
+export const assistantCreateSchema = z.object({
+  name: z.string().trim().min(1, "Name the assistant").max(60),
+  client: z.enum(["CLAUDE_DESKTOP", "CLAUDE_CODE", "CURSOR", "OTHER"]).default("OTHER"),
+});
+
+export const assistantUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  level: z.enum(["READ_ONLY", "HELPER", "FULL", "CUSTOM"]).optional(),
+  /** Empty means every project in the org. */
+  projectIds: z.array(z.string()).max(100).optional(),
+  ratePerHour: z.number().int().min(10).max(5000).optional(),
+  /** 0 means the key never times out. */
+  idleHours: z.number().int().min(0).max(720).optional(),
+  enabled: z.boolean().optional(),
+  /** Setting any of these makes the assistant custom. */
+  capabilities: z
+    .array(z.object({ tool: z.string(), mode: z.enum(["ALLOW", "ASK", "DENY"]) }))
+    .max(200)
+    .optional(),
+});
+
+export const aiAccessSchema = z.object({ aiAccess: z.boolean() });
