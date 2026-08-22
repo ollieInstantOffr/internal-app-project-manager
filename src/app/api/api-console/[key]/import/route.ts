@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { handler, json, fail, requireApiContext, projectInOrg } from "@/lib/api";
 import { syncCollectionsFromRepo, ensureDefaultEnvironments } from "@/lib/api-console/sync";
 import { appUrl } from "@/lib/app-url";
+import { githubTokenFor } from "@/lib/github-auth";
 
 type Ctx = { params: Promise<{ key: string }> };
 
@@ -16,7 +17,8 @@ export const POST = handler(async (req: Request, { params }: Ctx) => {
   }
 
   const user = await db.user.findUniqueOrThrow({ where: { id: ctx.userId } });
-  if (!user.githubToken) {
+  const token = await githubTokenFor(user.id);
+  if (!token) {
     return fail(400, "Connect your GitHub account to read the repository");
   }
 
@@ -25,7 +27,7 @@ export const POST = handler(async (req: Request, { params }: Ctx) => {
   const outcome = await syncCollectionsFromRepo({
     projectId: project.id,
     repoFullName: project.repoFullName,
-    token: user.githubToken,
+    token,
   });
 
   if (!outcome.found) {

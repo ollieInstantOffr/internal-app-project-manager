@@ -21,6 +21,12 @@ model User {
   githubId      String?   @unique
   /// OAuth token used to list repos and import issues. Encrypt at rest in production.
   githubToken   String?
+  /// Only issued when the GitHub App expires user tokens; absent for OAuth Apps.
+  githubRefreshToken    String?
+  /// Null means the token never expires, which is how OAuth Apps behave.
+  githubTokenExpiresAt  DateTime?
+  /// Once this passes, the person has to reconnect GitHub by hand.
+  githubRefreshExpiresAt DateTime?
   emailVerified DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "./db";
 import { HttpError } from "./auth";
+import { githubTokenFor } from "./github-auth";
 import { IssueStatus } from "./types";
 import {
   listRepoTree,
@@ -285,11 +286,12 @@ export async function requireRepoProject(orgId: string, key: string, userId: str
   }
 
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
-  if (!user.githubToken) {
+  const token = await githubTokenFor(user.id);
+  if (!token) {
     throw new HttpError(400, "Connect your GitHub account to browse the repository");
   }
 
-  return { project, repo: project.repoFullName, token: user.githubToken };
+  return { project, repo: project.repoFullName, token };
 }
 
 const LANGUAGES: Record<string, string> = {

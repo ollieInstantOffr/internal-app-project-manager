@@ -5,6 +5,7 @@ import { requireUser, setActiveOrg } from "@/lib/auth";
 import { seedDefaultRules } from "@/lib/automation";
 import { ActivityType, Role } from "@/lib/types";
 import { logActivity } from "@/lib/activity";
+import { githubTokenFor } from "@/lib/github-auth";
 
 export const POST = handler(async (req: Request) => {
   const user = await requireUser();
@@ -19,7 +20,7 @@ export const POST = handler(async (req: Request) => {
       slug,
       githubOrg: githubOrg || null,
       members: { create: { userId: user.id, role: Role.OWNER } },
-      integrations: user.githubToken
+      integrations: (await githubTokenFor(user.id))
         ? { create: { provider: "github", connected: true, account: githubOrg || user.githubLogin } }
         : undefined,
     },

@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "../db";
 import { HttpError } from "../auth";
 import { getFileContext, getRepoTree } from "../repo";
+import { githubTokenFor } from "../github-auth";
 import type { ToolContext } from "./tools";
 
 /**
@@ -19,18 +20,15 @@ async function repoAccess(ctx: ToolContext, projectKey: string) {
   if (!project) throw new HttpError(404, `No project ${projectKey.toUpperCase()} you can see`);
   if (!project.repoFullName) throw new HttpError(400, `${project.key} has no repository connected`);
 
-  const owner = await db.user.findUnique({
-    where: { id: ctx.ownerId },
-    select: { githubToken: true },
-  });
-  if (!owner?.githubToken) {
+  const token = await githubTokenFor(ctx.ownerId);
+  if (!token) {
     throw new HttpError(
       400,
       "Repository access needs the GitHub connection of the person who set this assistant up",
     );
   }
 
-  return { project, repo: project.repoFullName, token: owner.githubToken };
+  return { project, repo: project.repoFullName, token };
 }
 
 export async function listRepoFiles(ctx: ToolContext, projectKey: string, path: string) {

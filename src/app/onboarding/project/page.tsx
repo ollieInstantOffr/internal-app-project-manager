@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireOrg } from "@/lib/auth";
 import { CountHeader } from "@/components/OnboardingHeader";
 import FirstProject from "./FirstProject";
+import { githubConnected } from "@/lib/github-auth";
 
 export const metadata = { title: "Create your first project · Arc" };
 
@@ -15,7 +16,7 @@ export default async function FirstProjectPage() {
   return (
     <>
       <CountHeader orgName={org.name} step={3} of={3} />
-      <FirstProject githubConnected={!!user.githubToken} />
+      <FirstProject githubConnected={await githubConnected(user.id)} />
     </>
   );
 }

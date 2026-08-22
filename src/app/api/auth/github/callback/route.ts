@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { createSession } from "@/lib/auth";
 import { hueFor } from "@/lib/constants";
 import { appUrl } from "@/lib/app-url";
+import { exchangeCode, tokenFields } from "@/lib/github-auth";
 
 type GhUser = { id: number; login: string; name: string | null; email: string | null };
 type GhEmail = { email: string; primary: boolean; verified: boolean };
@@ -21,19 +22,13 @@ export async function GET(req: Request) {
     return NextResponse.redirect(appUrl("/login?error=oauth_state"));
   }
 
-  const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: { accept: "application/json", "content-type": "application/json" },
-    body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code,
-      redirect_uri: appUrl("/api/auth/github/callback"),
-    }),
-  });
-  const tokenJson = (await tokenRes.json()) as { access_token?: string };
+  const tokenJson = await exchangeCode(code, appUrl("/api/auth/github/callback"));
   const accessToken = tokenJson.access_token;
   if (!accessToken) return NextResponse.redirect(appUrl("/login?error=oauth_token"));
+
+  // A GitHub App that expires user tokens also returns a refresh token here;
+  // without storing it the connection dies silently after eight hours.
+  const github = tokenFields(tokenJson);
 
   const gh = { authorization: `Bearer ${accessToken}`, accept: "application/vnd.github+json" };
   const profile = (await (await fetch("https://api.github.com/user", { headers: gh })).json()) as GhUser;
@@ -59,7 +54,7 @@ export async function GET(req: Request) {
       data: {
         githubId: String(profile.id),
         githubLogin: profile.login,
-        githubToken: accessToken,
+        ...github,
         emailVerified: user.emailVerified ?? new Date(),
       },
     });
@@ -70,7 +65,7 @@ export async function GET(req: Request) {
         name: profile.name || profile.login,
         githubId: String(profile.id),
         githubLogin: profile.login,
-        githubToken: accessToken,
+        ...github,
         emailVerified: new Date(),
         avatarHue: hueFor(normalized),
         prefs: { create: {} },

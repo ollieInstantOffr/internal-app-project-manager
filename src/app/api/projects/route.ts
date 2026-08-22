@@ -4,6 +4,7 @@ import { projectSchema } from "@/lib/validators";
 import { requireApiContext } from "@/lib/api";
 import { createProject } from "@/lib/projects";
 import { Role } from "@/lib/types";
+import { githubTokenFor } from "@/lib/github-auth";
 
 export const GET = handler(async (req: Request) => {
   const ctx = await requireApiContext(req);
@@ -30,7 +31,7 @@ export const POST = handler(async (req: Request) => {
     importIssues: body.importIssues,
     importLabels: body.importLabels,
     importClosed: body.importClosed,
-    githubToken: user.githubToken,
+    githubToken: await githubTokenFor(user.id),
   });
 
   return json({ ok: true, project, imported });

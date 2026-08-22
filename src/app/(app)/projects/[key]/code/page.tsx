@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getRepoTree, getBranches, getFileContext, pathsWithIssues } from "@/lib/repo";
 import { RepoBrowser } from "@/components/repo/RepoBrowser";
 import { Empty } from "@/components/ui";
+import { githubTokenFor } from "@/lib/github-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,8 @@ export default async function CodePage({
   });
   if (!project) notFound();
 
-  if (!project.repoFullName || !user.githubToken) {
+  const githubToken = await githubTokenFor(user.id);
+  if (!project.repoFullName || !githubToken) {
     return (
       <main className="panel">
         <header className="panel-head panel-head-sm">
@@ -47,7 +49,7 @@ export default async function CodePage({
                 : "Link a repository to this project and its files show up here, mapped to the issues that touch them."
             }
           />
-          {!user.githubToken && (
+          {!githubToken && (
             <Link
               className="btn btn-primary"
               href="/api/auth/github?intent=connect"
@@ -62,7 +64,7 @@ export default async function CodePage({
   }
 
   const repo = project.repoFullName;
-  const token = user.githubToken;
+  const token = githubToken;
 
   const treeData = await getRepoTree(repo, token, ref).catch(() => null);
   if (!treeData) {
