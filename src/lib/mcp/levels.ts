@@ -17,8 +17,8 @@ export const LEVEL_COPY: Record<
   HELPER: {
     name: "Helper",
     blurb:
-      "Adds: files new issues into Triage, comments, and drafts tasks on your list — without asking.",
-    asks: "editing an issue someone else owns · moving cards on the board · handing a task to a teammate · moving an epic on the roadmap",
+      "Adds: files new issues into Triage, comments, creates labels, and drafts tasks on your list — without asking.",
+    asks: "editing an issue someone else owns · moving cards on the board · opening or moving an epic on the roadmap · handing a task to a teammate",
     recommended: true,
   },
   FULL: {

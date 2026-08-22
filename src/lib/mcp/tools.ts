@@ -52,6 +52,19 @@ const num = (args: Record<string, unknown>, key: string) => {
   return typeof value === "number" ? value : undefined;
 };
 
+const COLOURS = ["lime", "blue", "amber", "violet", "red", "slate"];
+
+/** Falls back rather than rejecting, so a wrong colour never fails a write. */
+function colourOr(value: string, fallback: string) {
+  return COLOURS.includes(value.toLowerCase()) ? value.toLowerCase() : fallback;
+}
+
+function parseDate(value: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 /** Restricts every query to the projects this assistant was given. */
 function projectScope(ctx: ToolContext) {
   return ctx.projectIds.length ? { orgId: ctx.orgId, id: { in: ctx.projectIds } } : { orgId: ctx.orgId };
@@ -626,7 +639,103 @@ export const TOOLS: Tool[] = [
     },
   },
 
+  {
+    name: "create_label",
+    title: "Create a label",
+    description:
+      "Adds a label to a project's vocabulary. Returns the existing one if that name is already taken.",
+    group: "Write",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project: { type: "string" },
+        name: { type: "string" },
+        color: {
+          type: "string",
+          description: "lime, blue, amber, violet, red or slate. Defaults to slate.",
+        },
+      },
+      required: ["project", "name"],
+    },
+    modes: HELPER_FREE,
+    summarise: (a) => `create the label "${str(a, "name")}" in ${str(a, "project").toUpperCase()}`,
+    run: async (ctx, args) => {
+      const project = await projectFor(ctx, str(args, "project"));
+      const name = str(args, "name");
+      if (!name) throw new HttpError(400, "A label needs a name");
+
+      // Upsert rather than fail: an agent asking twice should be harmless.
+      const label = await db.label.upsert({
+        where: { projectId_name: { projectId: project.id, name } },
+        create: { projectId: project.id, name, color: colourOr(str(args, "color"), "slate") },
+        update: {},
+      });
+
+      return { text: `Label "${label.name}" is available in ${project.key}.` };
+    },
+  },
+
   /* ── writes a Helper must ask about ──────────────────────── */
+  {
+    name: "create_epic",
+    title: "Create an epic",
+    description:
+      "Opens a new epic in a project. An epic shows on the roadmap, so a helper asks first.",
+    group: "Write",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project: { type: "string" },
+        name: { type: "string" },
+        description: { type: "string" },
+        color: {
+          type: "string",
+          description: "lime, blue, amber, violet, red or slate. Defaults to the project's colour.",
+        },
+        startDate: { type: "string", description: "YYYY-MM-DD" },
+        targetDate: { type: "string", description: "YYYY-MM-DD" },
+      },
+      required: ["project", "name"],
+    },
+    modes: HELPER_ASKS,
+    summarise: (a) => `create the epic "${str(a, "name")}" in ${str(a, "project").toUpperCase()}`,
+    run: async (ctx, args) => {
+      const project = await projectFor(ctx, str(args, "project"));
+      const name = str(args, "name");
+      if (!name) throw new HttpError(400, "An epic needs a name");
+
+      // Epic keys come off an org-wide counter, the same as the app's own form.
+      const org = await db.organization.update({
+        where: { id: ctx.orgId },
+        data: { epicCounter: { increment: 1 } },
+        select: { epicCounter: true },
+      });
+
+      const epic = await db.epic.create({
+        data: {
+          projectId: project.id,
+          key: `EPIC-${org.epicCounter}`,
+          name,
+          description: str(args, "description") || null,
+          color: colourOr(str(args, "color"), project.color),
+          startDate: parseDate(str(args, "startDate")),
+          targetDate: parseDate(str(args, "targetDate")),
+        },
+      });
+
+      await db.activity.create({
+        data: {
+          orgId: ctx.orgId,
+          actorId: ctx.actorId,
+          type: "EPIC_CREATED",
+          message: `created epic ${epic.name}`,
+        },
+      });
+
+      return { text: `Created epic "${epic.name}" (${epic.key}) in ${project.key}.` };
+    },
+  },
+
   {
     name: "update_issue",
     title: "Edit an issue",
