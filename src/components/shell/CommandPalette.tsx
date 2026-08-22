@@ -132,15 +132,17 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       hint: "G R",
       run: () => router.push("/roadmap"),
     });
-    if (projects[0]) {
+    // Every project, not just the first — the palette is the fastest way to
+    // switch, and only offering one of them made it useless for that.
+    projects.forEach((project, index) => {
       out.push({
         kind: "action",
-        id: "board",
-        label: `Go to ${projects[0].name} board`,
-        hint: "G B",
-        run: () => router.push(`/projects/${projects[0].key}/board`),
+        id: `board-${project.id}`,
+        label: `Go to ${project.name} board`,
+        hint: index === 0 ? "G B" : undefined,
+        run: () => router.push(`/projects/${project.key}/board`),
       });
-    }
+    });
     out.push({
       kind: "action",
       id: "invite",

@@ -24,6 +24,7 @@ import { BulkBar, type BulkPatch } from "@/components/board/BulkBar";
 import { IssueStatus, SprintStatus } from "@/lib/types";
 import { STATUS_LABEL } from "@/lib/constants";
 import type { BoardIssue, BoardProject, BoardEpic, BoardSprint, BoardLabel } from "@/components/board/types";
+import { ProjectCrumb } from "@/components/shell/ProjectCrumb";
 
 type GroupBy = "epic" | "status" | "assignee" | "none";
 
@@ -274,6 +275,7 @@ export function Backlog({
       <header className="panel-head panel-head-sm">
         <div>
           <h1 className="panel-title panel-title-sm">Backlog</h1>
+          <ProjectCrumb color={project.color} name={project.name} />
           <div className="panel-sub">
             {backlog.length} issue{backlog.length === 1 ? "" : "s"} · {backlogPoints} point
             {backlogPoints === 1 ? "" : "s"}

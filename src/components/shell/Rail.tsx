@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useShell } from "./context";
-import { Avatar, ProjectDot } from "@/components/ui";
+import { Avatar, Popover, ProjectDot } from "@/components/ui";
 import { shortName } from "@/lib/format";
 import { FocusToday } from "@/components/focus/FocusToday";
 
@@ -42,6 +42,11 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
   const inSettings = pathname.startsWith("/settings");
   const inTasks = pathname.startsWith("/tasks");
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
+  const tabMatch = pathname.match(/^\/projects\/[^/]+\/([^/?]+)/);
+  const knownTabs = [...PLANNING_TABS, ...TOOL_TABS].map((t) => t.slug);
+  // Nested routes (a file in the code browser, a run in the console) fall back
+  // to the tab root, since the equivalent path won't exist in another project.
+  const currentTab = tabMatch && knownTabs.includes(tabMatch[1]) ? tabMatch[1] : "board";
   const activeProject = projectMatch
     ? projects.find((p) => p.key.toLowerCase() === projectMatch[1].toLowerCase())
     : null;
@@ -139,7 +144,52 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
           ) : activeProject ? (
             <>
               <div className="rail-group">
-                <div className="eyebrow rail-heading truncate">{activeProject.name}</div>
+                {/* The switcher replaces what used to be a small label, so the
+                    project you're in is the most prominent thing in the rail —
+                    and changing it doesn't mean backing out first. */}
+                <Popover
+                  stretch
+                  width={232}
+                  trigger={({ open, toggle }) => (
+                    <button className="proj-switch" data-open={open} onClick={toggle}>
+                      <ProjectDot color={activeProject.color} size={10} />
+                      <span className="proj-switch-name truncate">{activeProject.name}</span>
+                      <span className="proj-switch-key mono">{activeProject.key}</span>
+                      <span className="proj-switch-caret" aria-hidden>
+                        ⌄
+                      </span>
+                    </button>
+                  )}
+                >
+                  {(close) => (
+                    <>
+                      <div className="eyebrow menu-label">Switch project</div>
+                      {projects.map((project) => (
+                        <Link
+                          key={project.id}
+                          // Land on the same screen in the project you pick,
+                          // rather than dumping everyone back on the board.
+                          href={`/projects/${project.key}/${currentTab}`}
+                          className="menu-item"
+                          data-active={project.key === activeProject.key}
+                          onClick={close}
+                        >
+                          <ProjectDot color={project.color} size={8} />
+                          <span className="truncate grow">{project.name}</span>
+                          <span className="mono proj-switch-key">{project.key}</span>
+                        </Link>
+                      ))}
+                      <div className="menu-sep" />
+                      <Link href="/projects/new" className="menu-item" onClick={close}>
+                        + New project
+                      </Link>
+                      <Link href="/home" className="menu-item" onClick={close}>
+                        All projects
+                      </Link>
+                    </>
+                  )}
+                </Popover>
+
                 {PLANNING_TABS.map((tab) => (
                   <Link
                     key={tab.slug}
@@ -168,11 +218,6 @@ export function Rail({ onOpenPalette }: { onOpenPalette: () => void }) {
                 ))}
               </div>
 
-              <div className="rail-group">
-                <Link href="/home" className="rail-item" style={{ color: "var(--muted-2)", fontSize: 12 }}>
-                  ← All projects
-                </Link>
-              </div>
             </>
           ) : (
             <div className="rail-group">

@@ -12,6 +12,7 @@ import { DeleteEpicModal } from "./DeleteEpicModal";
 import { EpicStatus, IssueStatus } from "@/lib/types";
 import { ACCENT_NAMES, STATUS_LABEL, accent } from "@/lib/constants";
 import type { BoardIssue, BoardProject } from "@/components/board/types";
+import { ProjectCrumb } from "@/components/shell/ProjectCrumb";
 
 export type EpicRow = {
   id: string;
@@ -65,6 +66,7 @@ export function Epics({
       <header className="panel-head panel-head-sm">
         <div>
           <h1 className="panel-title panel-title-sm">Epics</h1>
+          <ProjectCrumb color={project.color} name={project.name} />
           <div className="panel-sub">
             {epics.length} epic{epics.length === 1 ? "" : "s"} in {project.name}
             {unassigned.length
