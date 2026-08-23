@@ -477,14 +477,19 @@ input, textarea, select { font: inherit; color: inherit; }
 }
 
 .panel-head {
-  height: 66px;
+  min-height: 66px;
   flex: none;
   display: flex;
   align-items: center;
-  padding: 0 24px;
+  padding: 10px 24px;
   gap: 14px;
+  /* Wraps rather than overflowing: the right-hand padding reserves room for the
+     bell and the focus pill, and an overflowing row would spill straight under
+     them instead of respecting it. */
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
-.panel-head-sm { height: 62px; padding: 0 22px; }
+.panel-head-sm { min-height: 62px; padding: 8px 22px; }
 .panel-title { font: 600 19px var(--display); letter-spacing: -0.02em; }
 .panel-title-sm { font-size: 18px; }
 .panel-sub { font: 400 10.5px var(--sans); color: var(--muted); margin-top: 2px; }
@@ -1528,13 +1533,7 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
 @media (max-width: 1024px) {
   /* Header controls wrap onto a second line rather than overflowing off-screen. */
   .panel-head,
-  .panel-head-sm {
-    height: auto;
-    min-height: 62px;
-    flex-wrap: wrap;
-    padding: 10px 22px;
-    row-gap: 8px;
-  }
+  .panel-head-sm { padding-left: 22px; padding-right: 22px; }
 
   .stats { flex-wrap: wrap; }
   .stats > .stat { flex: 1 1 calc(50% - 7px); min-width: 150px; }
@@ -2230,12 +2229,16 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
    so it's positioned against the viewport rather than a panel.
    ──────────────────────────────────────────────────────────── */
 
-:root { --focus-pill-w: 0px; }
+:root {
+  --focus-pill-w: 0px;
+  /* The bell is a fixed 32px plus the gap to the pill. */
+  --bell-w: 42px;
+}
 
 /* Page headers reserve room for the fixed pill so nothing collides. */
 .panel-head,
 .panel-head-sm {
-  padding-right: calc(24px + var(--focus-pill-w) + 14px);
+  padding-right: calc(24px + var(--bell-w) + var(--focus-pill-w) + 14px) !important;
 }
 
 .focus-pill {
@@ -2571,6 +2574,7 @@ body[data-dim-rail="1"] .rail { opacity: 0.5; transition: opacity 0.2s ease; }
   /* The mobile top bar has its own slot, so the fixed copy stands down. */
   .panel-head,
   .panel-head-sm { padding-right: 22px; }
+  :root { --bell-w: 0px; }
   .focus-pill[data-variant="fixed"] { display: none; }
   .focus-pill[data-variant="inline"] { display: flex; }
   .focus-pill[data-variant="inline"] .focus-pill-main { padding: 6px 11px; }
@@ -4046,6 +4050,7 @@ textarea.pub-input { resize: vertical; min-height: 74px; line-height: 1.6; }
   position: fixed;
   top: 15px;
   right: calc(22px + var(--focus-pill-w) + 10px);
+  /* Keeps the badge from being clipped by the header's own overflow. */
   z-index: 70;
   width: 32px;
   height: 32px;
@@ -4173,10 +4178,12 @@ textarea.pub-input { resize: vertical; min-height: 74px; line-height: 1.6; }
 .notif-foot a { color: var(--accent); }
 
 @media (max-width: 767px) {
-  /* Sits in the top bar's row, just left of search. */
+  /* Sits at the end of the top bar's row. The bar reserves the space rather
+     than the bell floating over the controls already in it. */
+  .topbar { padding-right: 52px; }
   .bell {
     top: 11px;
-    right: 52px;
+    right: 10px;
     width: 30px;
     height: 30px;
     background: none;
