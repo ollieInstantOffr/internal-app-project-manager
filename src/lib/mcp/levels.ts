@@ -29,7 +29,7 @@ export const LEVEL_COPY: Record<
 
 /** True at every rung, and not negotiable through per-tool overrides. */
 export const OFF_LIMITS =
-  "Starting or ending a sprint · deleting anything · publishing the public roadmap · your focus sessions, private tasks and time logs";
+  "Starting or ending a sprint · deleting issues, tasks or projects · publishing the public roadmap · your focus sessions, private tasks and time logs";
 
 /**
  * Names an agent is likely to reach for that will never be allowed. They aren't
@@ -40,10 +40,9 @@ export const FORBIDDEN_TOOLS: Record<string, string> = {
   start_sprint: "Starting a sprint is off limits to assistants at every level.",
   end_sprint: "Ending a sprint is off limits to assistants at every level.",
   complete_sprint: "Closing a sprint is off limits to assistants at every level.",
-  delete_issue: "Deleting is off limits to assistants at every level.",
-  delete_epic: "Deleting is off limits to assistants at every level.",
-  delete_task: "Deleting is off limits to assistants at every level.",
-  delete_project: "Deleting is off limits to assistants at every level.",
+  delete_issue: "Deleting issues is off limits to assistants at every level.",
+  delete_task: "Deleting tasks is off limits to assistants at every level.",
+  delete_project: "Deleting projects is off limits to assistants at every level.",
   publish_roadmap: "Publishing the public roadmap is off limits to assistants at every level.",
   list_focus_sessions: "Focus sessions and time logs are private and never exposed to assistants.",
   start_focus: "Focus sessions and time logs are private and never exposed to assistants.",

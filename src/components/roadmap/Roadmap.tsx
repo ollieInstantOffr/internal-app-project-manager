@@ -64,6 +64,19 @@ export function Roadmap({
   } | null>(null);
   const [loadingShare, setLoadingShare] = useState(false);
 
+  const setEpicStatus = useCallback(
+    async (epic: RoadmapEpic, status: EpicStatus) => {
+      try {
+        await api.patch(`/api/epics/${epic.id}`, { status });
+        router.refresh();
+        toast(status === EpicStatus.DONE ? `Closed "${epic.name}"` : `Reopened "${epic.name}"`);
+      } catch (err) {
+        toast(err instanceof ApiError ? err.message : "Couldn't update that epic");
+      }
+    },
+    [router, toast],
+  );
+
   const setMilestoneStatus = useCallback(
     async (milestone: RoadmapMilestone, status: MilestoneStatus) => {
       try {
@@ -334,6 +347,20 @@ export function Roadmap({
                         }}
                       >
                         Open epic
+                      </button>
+                      <button
+                        className="menu-item"
+                        onClick={() => {
+                          setEpicStatus(
+                            epic,
+                            epic.status === EpicStatus.DONE
+                              ? EpicStatus.IN_PROGRESS
+                              : EpicStatus.DONE,
+                          );
+                          close();
+                        }}
+                      >
+                        {epic.status === EpicStatus.DONE ? "Reopen epic" : "Close epic"}
                       </button>
                       <div className="menu-sep" />
                       <button

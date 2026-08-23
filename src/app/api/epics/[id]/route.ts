@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { handler, json, fail, parseBody, requireApiContext } from "@/lib/api";
-import { EpicStatus } from "@/lib/types";
+import { ActivityType, EpicStatus } from "@/lib/types";
+import { logActivity } from "@/lib/activity";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -23,6 +24,18 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
 
   const body = await parseBody(req, patchSchema);
   const updated = await db.epic.update({ where: { id }, data: body });
+
+  // Closing and reopening are worth a line in the feed; a date nudge isn't.
+  if (body.status && body.status !== epic.status) {
+    await logActivity({
+      orgId: ctx.orgId,
+      type: ActivityType.EPIC_UPDATED,
+      message:
+        body.status === "DONE" ? `closed epic ${updated.name}` : `reopened epic ${updated.name}`,
+      actorId: ctx.userId,
+    });
+  }
+
   return json({ ok: true, epic: updated });
 });
 

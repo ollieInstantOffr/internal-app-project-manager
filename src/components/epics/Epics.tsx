@@ -203,16 +203,33 @@ export function Epics({
                   )}
                 >
                   {(close) => (
-                    <button
-                      className="menu-item"
-                      style={{ color: "var(--danger)" }}
-                      onClick={() => {
-                        setDeleting(epic);
-                        close();
-                      }}
-                    >
-                      Delete epic
-                    </button>
+                    <>
+                      <button
+                        className="menu-item"
+                        onClick={() => {
+                          patch(epic, {
+                            status:
+                              epic.status === EpicStatus.DONE
+                                ? EpicStatus.IN_PROGRESS
+                                : EpicStatus.DONE,
+                          });
+                          close();
+                        }}
+                      >
+                        {epic.status === EpicStatus.DONE ? "Reopen epic" : "Close epic"}
+                      </button>
+                      <div className="menu-sep" />
+                      <button
+                        className="menu-item"
+                        style={{ color: "var(--danger)" }}
+                        onClick={() => {
+                          setDeleting(epic);
+                          close();
+                        }}
+                      >
+                        Delete epic
+                      </button>
+                    </>
                   )}
                 </Popover>
               </div>

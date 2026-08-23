@@ -51,6 +51,12 @@ const READ: Record<Level, ToolMode> = { READ_ONLY: "ALLOW", HELPER: "ALLOW", FUL
 const HELPER_FREE: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ALLOW", FULL: "ALLOW" };
 const HELPER_ASKS: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ASK", FULL: "ALLOW" };
 const FULL_ONLY: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ASK", FULL: "ALLOW" };
+/**
+ * Asks a person every time, at every level. For the one destructive thing an
+ * assistant can reach: "does all of the above without asking" was never meant to
+ * cover deletion. Overridable per tool for anyone who disagrees.
+ */
+const ALWAYS_ASK: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ASK", FULL: "ASK" };
 
 const str = (args: Record<string, unknown>, key: string) => {
   const value = args[key];
@@ -104,6 +110,15 @@ async function issueFor(ctx: ToolContext, key: string) {
   });
   if (!issue) throw new HttpError(404, `No issue ${key.toUpperCase()} in the projects you can see`);
   return issue;
+}
+
+async function epicFor(ctx: ToolContext, name: string) {
+  const epic = await db.epic.findFirst({
+    where: { project: projectScope(ctx), name: { contains: name, mode: "insensitive" } },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!epic) throw new HttpError(404, `No epic matching "${name}"`);
+  return epic;
 }
 
 async function projectFor(ctx: ToolContext, key: string) {
@@ -801,6 +816,95 @@ export const TOOLS: Tool[] = [
       await db.epic.update({ where: { id: epic!.id }, data: { releaseId } });
       return {
         text: name ? `"${epic!.name}" is tagged for ${name}.` : `Cleared the version on "${epic!.name}".`,
+      };
+    },
+  },
+
+  {
+    name: "close_epic",
+    title: "Close or reopen an epic",
+    description:
+      "Marks an epic done, or puts it back to planned or in progress. Identify it by name.",
+    group: "Write",
+    inputSchema: {
+      type: "object",
+      properties: {
+        epic: { type: "string" },
+        status: {
+          type: "string",
+          description: "DONE to close, or PLANNED / IN_PROGRESS to reopen. Defaults to DONE.",
+        },
+      },
+      required: ["epic"],
+    },
+    modes: HELPER_ASKS,
+    summarise: (a) => {
+      const status = str(a, "status").toUpperCase() || "DONE";
+      return status === "DONE"
+        ? `close the epic "${str(a, "epic")}"`
+        : `reopen the epic "${str(a, "epic")}" as ${status}`;
+    },
+    run: async (ctx, args) => {
+      const epic = await epicFor(ctx, str(args, "epic"));
+      const status = (str(args, "status").toUpperCase() || "DONE") as
+        | "PLANNED"
+        | "IN_PROGRESS"
+        | "DONE";
+      if (!["PLANNED", "IN_PROGRESS", "DONE"].includes(status)) {
+        throw new HttpError(400, "Status must be PLANNED, IN_PROGRESS or DONE");
+      }
+
+      await db.epic.update({ where: { id: epic.id }, data: { status } });
+      await db.activity.create({
+        data: {
+          orgId: ctx.orgId,
+          actorId: ctx.actorId,
+          type: "EPIC_UPDATED" as const,
+          message: status === "DONE" ? `closed epic ${epic.name}` : `reopened epic ${epic.name}`,
+        },
+      });
+
+      const open = await db.issue.count({
+        where: { epicId: epic.id, status: { not: "DONE" }, archivedAt: null },
+      });
+      return {
+        text:
+          status === "DONE"
+            ? `Closed "${epic.name}".${open ? ` ${open} issue${open === 1 ? " is" : "s are"} still open in it.` : ""}`
+            : `"${epic.name}" is ${status.toLowerCase().replace("_", " ")} again.`,
+      };
+    },
+  },
+  {
+    name: "delete_epic",
+    title: "Delete an epic",
+    description:
+      "Removes an epic. Its issues survive and simply lose the grouping — that part can't be undone. A person confirms this every time.",
+    group: "Write",
+    inputSchema: {
+      type: "object",
+      properties: { epic: { type: "string" } },
+      required: ["epic"],
+    },
+    modes: ALWAYS_ASK,
+    summarise: (a) => `delete the epic "${str(a, "epic")}"`,
+    run: async (ctx, args) => {
+      const epic = await epicFor(ctx, str(args, "epic"));
+      // Counted before the delete, since afterwards there is nothing to count.
+      const orphaned = await db.issue.count({ where: { epicId: epic.id } });
+
+      await db.epic.delete({ where: { id: epic.id } });
+      await db.activity.create({
+        data: {
+          orgId: ctx.orgId,
+          actorId: ctx.actorId,
+          type: "EPIC_UPDATED" as const,
+          message: `deleted epic ${epic.name}`,
+        },
+      });
+
+      return {
+        text: `Deleted "${epic.name}".${orphaned ? ` ${orphaned} issue${orphaned === 1 ? "" : "s"} kept, now without an epic.` : ""}`,
       };
     },
   },
