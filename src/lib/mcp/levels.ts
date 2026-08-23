@@ -29,7 +29,7 @@ export const LEVEL_COPY: Record<
 
 /** True at every rung, and not negotiable through per-tool overrides. */
 export const OFF_LIMITS =
-  "Starting or ending a sprint · deleting issues, tasks or projects · publishing the public roadmap · your focus sessions, private tasks and time logs";
+  "Starting or ending a sprint · deleting issues, tasks or projects · publishing the public roadmap · answering your own approval requests · your focus sessions, private tasks and time logs";
 
 /**
  * Names an agent is likely to reach for that will never be allowed. They aren't
@@ -47,4 +47,12 @@ export const FORBIDDEN_TOOLS: Record<string, string> = {
   list_focus_sessions: "Focus sessions and time logs are private and never exposed to assistants.",
   start_focus: "Focus sessions and time logs are private and never exposed to assistants.",
   list_tasks: "Personal tasks are private; an assistant only sees tasks it drafted for you.",
+  // An assistant approving its own pending request would defeat the entire
+  // ladder, so answering approvals is refused by name rather than merely
+  // left unimplemented.
+  approve_request: "Only a person can answer an approval — an assistant can't approve its own.",
+  deny_request: "Only a person can answer an approval — an assistant can't approve its own.",
+  approve_approval: "Only a person can answer an approval — an assistant can't approve its own.",
+  resolve_approval: "Only a person can answer an approval — an assistant can't approve its own.",
+  mark_notification_read: "Notifications belong to the person they were sent to.",
 };

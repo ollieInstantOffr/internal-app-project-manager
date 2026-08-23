@@ -8,6 +8,7 @@ import { ShellProvider, type ShellData } from "./context";
 import { FocusProvider, type FocusPrefs, type FocusSession } from "@/components/focus/context";
 import { FocusChrome } from "@/components/focus/FocusChrome";
 import { LiveUpdates } from "./LiveUpdates";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { FocusPill } from "@/components/focus/FocusPill";
 
 export type FocusBoot = {
@@ -141,6 +142,7 @@ export function AppShell({
       </div>
 
       <LiveUpdates />
+      <NotificationCenter />
       <FocusChrome />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       </FocusProvider>

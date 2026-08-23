@@ -909,6 +909,69 @@ export const TOOLS: Tool[] = [
     },
   },
 
+  {
+    name: "list_notifications",
+    title: "Read the notification centre",
+    description:
+      "What is waiting on the person who set this assistant up: approvals you have asked for, and notifications they have received. Read-only — only a person can answer an approval.",
+    group: "Read",
+    inputSchema: {
+      type: "object",
+      properties: {
+        unreadOnly: { type: "boolean", description: "Only notifications they haven't read" },
+        limit: { type: "number", description: "1–50, default 20" },
+      },
+    },
+    modes: READ,
+    summarise: () => "read the notification centre",
+    run: async (ctx, args) => {
+      const take = Math.min(Math.max(num(args, "limit") ?? 20, 1), 50);
+
+      const [approvals, notifications] = await Promise.all([
+        // Only this assistant's own requests — it has no business reading what
+        // anyone else has been asked to approve.
+        db.agentApproval.findMany({
+          where: { assistantId: ctx.assistantId, status: "PENDING", expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: "desc" },
+          take,
+        }),
+        db.notification.findMany({
+          where: {
+            userId: ctx.ownerId,
+            archivedAt: null,
+            ...(args.unreadOnly === true ? { readAt: null } : {}),
+          },
+          orderBy: { createdAt: "desc" },
+          take,
+          include: { issue: { select: { key: true } } },
+        }),
+      ]);
+
+      const lines: string[] = [];
+
+      if (approvals.length) {
+        lines.push("WAITING ON A PERSON — your requests, unanswered:");
+        for (const a of approvals) {
+          lines.push(`  ${a.id} · ${a.summary} · asked ${a.createdAt.toISOString().slice(0, 16).replace("T", " ")}`);
+        }
+        lines.push("Use check_approval with an id once one is answered.", "");
+      }
+
+      if (!notifications.length) {
+        lines.push("No notifications.");
+      } else {
+        lines.push("NOTIFICATIONS:");
+        for (const n of notifications) {
+          lines.push(
+            `  ${n.readAt ? " " : "•"} ${n.title}${n.detail ? ` — ${n.detail}` : ""}${n.issue ? ` (${n.issue.key})` : ""}`,
+          );
+        }
+      }
+
+      return { text: lines.join("\n") };
+    },
+  },
+
   /* ── writes a Helper makes on its own ────────────────────── */
   {
     name: "create_issue",

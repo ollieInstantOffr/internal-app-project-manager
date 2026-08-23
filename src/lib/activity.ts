@@ -86,6 +86,7 @@ export async function notify(opts: {
       title: opts.title,
       detail: opts.detail,
       issueId: opts.issueId ?? null,
+      actorId: opts.actorId ?? null,
     },
   });
 }

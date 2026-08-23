@@ -42,6 +42,7 @@ model User {
   activities     Activity[]
   watches        Watcher[]
   notifications  Notification[]
+  causedNotifications Notification[] @relation("notificationActor")
   sentInvites    Invite[]         @relation("inviter")
   tokens         ApiToken[]
   apiRuns        ApiRun[]
@@ -494,6 +495,8 @@ model Activity {
 }
 
 enum NotificationKind {
+  /// An assistant is blocked waiting for a person to answer.
+  APPROVAL
   MENTION
   ASSIGNED
   REVIEW_REQUESTED
@@ -520,6 +523,10 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   issueId   String?
   issue     Issue?           @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  /// Who caused it. Kept so the centre can distinguish a teammate from an
+  /// assistant, which matters once agents are writing.
+  actorId   String?
+  actor     User?            @relation("notificationActor", fields: [actorId], references: [id], onDelete: SetNull)
   readAt    DateTime?
   archivedAt DateTime?
   emailedAt DateTime?

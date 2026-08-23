@@ -171,7 +171,7 @@ export async function callTool(
 
     await notify({
       userId: connection.ctx.ownerId,
-      kind: NotificationKind.MENTION,
+      kind: NotificationKind.APPROVAL,
       urgency: Urgency.TODAY,
       title: `${assistant.name} is waiting on you`,
       detail: `Wants to ${tool.summarise(args)}`,
