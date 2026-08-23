@@ -10,6 +10,7 @@ export const ISSUE_INCLUDE = {
   project: { select: { id: true, key: true, name: true, color: true, repoFullName: true } },
   epic: { select: { id: true, key: true, name: true, color: true } },
   sprint: { select: { id: true, name: true, number: true, status: true } },
+  release: { select: { id: true, name: true, releasedAt: true } },
   assignee: { select: { id: true, name: true, email: true, avatarHue: true, githubLogin: true } },
   createdBy: { select: { id: true, name: true } },
   labels: { include: { label: true } },
@@ -49,6 +50,7 @@ export async function createIssue(input: {
   assigneeId?: string | null;
   epicId?: string | null;
   sprintId?: string | null;
+  releaseId?: string | null;
   labelIds?: string[];
   dueDate?: Date | null;
 }) {
@@ -85,6 +87,7 @@ export async function createIssue(input: {
       projectId: project.id,
       epicId: input.epicId ?? null,
       sprintId: input.sprintId ?? null,
+      releaseId: input.releaseId ?? null,
       assigneeId: input.assigneeId ?? null,
       createdById: input.actorId,
       startedAt: status === IssueStatus.IN_PROGRESS ? new Date() : null,
@@ -134,6 +137,7 @@ type Patch = {
   assigneeId?: string | null;
   epicId?: string | null;
   sprintId?: string | null;
+  releaseId?: string | null;
   labelIds?: string[];
   dueDate?: Date | null;
   rank?: number;
@@ -215,6 +219,17 @@ export async function updateIssue(opts: {
   if (patch.epicId !== undefined && patch.epicId !== before.epicId) {
     data.epicId = patch.epicId;
     events.push({ type: ActivityType.ISSUE_UPDATED, message: "moved to a different epic" });
+  }
+
+  if (patch.releaseId !== undefined && patch.releaseId !== before.releaseId) {
+    data.releaseId = patch.releaseId;
+    const named = patch.releaseId
+      ? await db.release.findUnique({ where: { id: patch.releaseId }, select: { name: true } })
+      : null;
+    events.push({
+      type: ActivityType.ISSUE_UPDATED,
+      message: named ? `tagged for ${named.name}` : "removed the release tag",
+    });
   }
 
   if (patch.sprintId !== undefined && patch.sprintId !== before.sprintId) {

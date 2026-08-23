@@ -65,6 +65,7 @@ export const issueCreateSchema = z.object({
   assigneeId: z.string().optional().nullable(),
   epicId: z.string().optional().nullable(),
   sprintId: z.string().optional().nullable(),
+  releaseId: z.string().optional().nullable(),
   labelIds: z.array(z.string()).optional(),
   dueDate: z.coerce.date().optional().nullable(),
 });
@@ -78,6 +79,7 @@ export const issueUpdateSchema = z.object({
   assigneeId: z.string().optional().nullable(),
   epicId: z.string().optional().nullable(),
   sprintId: z.string().optional().nullable(),
+  releaseId: z.string().optional().nullable(),
   labelIds: z.array(z.string()).optional(),
   dueDate: z.coerce.date().optional().nullable(),
   rank: z.number().optional(),
@@ -93,6 +95,7 @@ export const bulkUpdateSchema = z.object({
     assigneeId: z.string().optional().nullable(),
     epicId: z.string().optional().nullable(),
     sprintId: z.string().optional().nullable(),
+    releaseId: z.string().optional().nullable(),
     addLabelId: z.string().optional().nullable(),
     archived: z.boolean().optional(),
   }),
@@ -348,4 +351,13 @@ export const storageSettingsSchema = z.object({
   accessKeyId: z.string().trim().max(300).optional().nullable(),
   /** Blank means "leave the stored one alone", so the page never echoes it. */
   secretAccessKey: z.string().trim().max(500).optional().nullable(),
+});
+
+/* ── Releases ────────────────────────────────────────────────────────────── */
+
+export const releaseSchema = z.object({
+  /** Free-form on purpose: 1, 1.1.1, v2-beta — whatever the team uses. */
+  name: z.string().trim().min(1, "Name the version").max(40),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  releasedAt: z.coerce.date().optional().nullable(),
 });

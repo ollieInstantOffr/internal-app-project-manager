@@ -13,6 +13,7 @@ export type BoardIssue = {
   assignee: { id: string; name: string; avatarHue: number } | null;
   epic: { id: string; key: string; name: string; color: string } | null;
   sprint: { id: string; name: string; number: number } | null;
+  release: { id: string; name: string; shipped: boolean } | null;
   labels: { id: string; name: string; color: string }[];
   branches: { id: string; name: string; repo: string }[];
   pullRequests: {

@@ -87,6 +87,11 @@ export function IssueCard({
 
       <div className="issue-card-meta">
         <span className="chip-key">{issue.key}</span>
+        {issue.release && (
+          <span className="release-chip" data-shipped={issue.release.shipped || undefined}>
+            {issue.release.name}
+          </span>
+        )}
 
         {issue.epic && (
           <span

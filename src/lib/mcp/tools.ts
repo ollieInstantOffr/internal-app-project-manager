@@ -98,6 +98,7 @@ async function issueFor(ctx: ToolContext, key: string) {
       assignee: { select: { id: true, name: true } },
       epic: { select: { name: true } },
       sprint: { select: { name: true } },
+      release: { select: { id: true, name: true } },
       labels: { include: { label: true } },
     },
   });
@@ -253,6 +254,7 @@ export const TOOLS: Tool[] = [
         `assignee: ${issue.assignee?.name ?? "unassigned"}`,
         issue.epic ? `epic: ${issue.epic.name}` : null,
         issue.sprint ? `sprint: ${issue.sprint.name}` : null,
+        issue.release ? `release: ${issue.release.name}` : null,
         issue.labels.length ? `labels: ${issue.labels.map((l) => l.label.name).join(", ")}` : null,
         blocks.length ? `blocks: ${blocks.map((b) => b.blocked.key).join(", ")}` : null,
         blockedBy.length ? `blocked by: ${blockedBy.map((b) => b.blocker.key).join(", ")}` : null,
@@ -699,6 +701,106 @@ export const TOOLS: Tool[] = [
       return {
         text: `Attached ${attachment.filename} (${Math.round(attachment.size / 1024)} KB) to ${issue.key}.`,
         targetKey: issue.key,
+      };
+    },
+  },
+
+  {
+    name: "list_releases",
+    title: "List versions",
+    description: "The versions a project tags work with, newest first, and how much is in each.",
+    group: "Read",
+    inputSchema: {
+      type: "object",
+      properties: { project: { type: "string" } },
+      required: ["project"],
+    },
+    modes: READ,
+    summarise: (a) => `list versions in ${str(a, "project").toUpperCase()}`,
+    run: async (ctx, args) => {
+      const project = await projectFor(ctx, str(args, "project"));
+      const { sortReleases } = await import("../releases");
+      const releases = await db.release.findMany({
+        where: { projectId: project.id },
+        include: { _count: { select: { issues: true, epics: true } } },
+      });
+      if (!releases.length) return { text: `No versions in ${project.key} yet.` };
+
+      return {
+        text: sortReleases(releases)
+          .reverse()
+          .map(
+            (r) =>
+              `${r.name} · ${r._count.issues} issue${r._count.issues === 1 ? "" : "s"}, ${r._count.epics} epic${r._count.epics === 1 ? "" : "s"}${r.releasedAt ? ` · shipped ${r.releasedAt.toISOString().slice(0, 10)}` : ""}`,
+          )
+          .join("\n"),
+      };
+    },
+  },
+  {
+    name: "set_release",
+    title: "Tag work with a version",
+    description:
+      "Tags an issue or an epic with a release version, creating the version if it doesn't exist yet. Pass an empty name to clear it.",
+    group: "Write",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "An issue key, or an epic name" },
+        version: { type: "string", description: "Any name: 1, 1.1.1, v2-beta. Empty clears it." },
+      },
+      required: ["key"],
+    },
+    modes: HELPER_ASKS,
+    summarise: (a) =>
+      str(a, "version")
+        ? `tag ${str(a, "key").toUpperCase()} for ${str(a, "version")}`
+        : `clear the version on ${str(a, "key").toUpperCase()}`,
+    run: async (ctx, args) => {
+      const name = str(args, "version");
+      const key = str(args, "key");
+
+      // An issue key, or failing that an epic by name.
+      const issue = await db.issue.findFirst({
+        where: { key: key.toUpperCase(), project: projectScope(ctx), archivedAt: null },
+        include: { project: { select: { id: true, key: true } } },
+      });
+      const epic = issue
+        ? null
+        : await db.epic.findFirst({
+            where: { project: projectScope(ctx), name: { contains: key, mode: "insensitive" } },
+            include: { project: { select: { id: true, key: true } } },
+          });
+
+      const target = issue ?? epic;
+      if (!target) throw new HttpError(404, `No issue or epic matching "${key}"`);
+
+      let releaseId: string | null = null;
+      if (name) {
+        const release = await db.release.upsert({
+          where: { projectId_name: { projectId: target.project.id, name } },
+          create: { projectId: target.project.id, name },
+          update: {},
+        });
+        releaseId = release.id;
+      }
+
+      if (issue) {
+        await updateIssue({
+          orgId: ctx.orgId,
+          issueId: issue.id,
+          actorId: ctx.actorId,
+          patch: { releaseId },
+        });
+        return {
+          text: name ? `${issue.key} is tagged for ${name}.` : `Cleared the version on ${issue.key}.`,
+          targetKey: issue.key,
+        };
+      }
+
+      await db.epic.update({ where: { id: epic!.id }, data: { releaseId } });
+      return {
+        text: name ? `"${epic!.name}" is tagged for ${name}.` : `Cleared the version on "${epic!.name}".`,
       };
     },
   },

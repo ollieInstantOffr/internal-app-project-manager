@@ -12,6 +12,7 @@ const patchSchema = z.object({
   status: z.nativeEnum(EpicStatus).optional(),
   startDate: z.coerce.date().optional().nullable(),
   targetDate: z.coerce.date().optional().nullable(),
+  releaseId: z.string().optional().nullable(),
 });
 
 export const PATCH = handler(async (req: Request, { params }: Ctx) => {

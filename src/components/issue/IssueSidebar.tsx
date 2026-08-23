@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Avatar, Popover } from "@/components/ui";
 import { useShell } from "@/components/shell/context";
 import { humanMinutes } from "@/components/focus/context";
+import { ReleasePicker } from "@/components/releases/ReleasePicker";
 import { useToast } from "@/components/Toast";
 import { IssueStatus, PrState, Priority } from "@/lib/types";
 import { PRIORITY_LABEL, PRIORITY_ORDER, accent } from "@/lib/constants";
@@ -175,6 +176,14 @@ export function IssueSidebar({
               </>
             )}
           </Popover>
+        </Field>
+
+        <Field label="Release">
+          <ReleasePicker
+            projectKey={issue.key.split("-")[0]}
+            value={issue.release ?? null}
+            onChange={(releaseId) => onPatch({ releaseId })}
+          />
         </Field>
 
         <Field label="Estimate">

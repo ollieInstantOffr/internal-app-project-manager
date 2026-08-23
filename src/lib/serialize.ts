@@ -13,6 +13,7 @@ type RawIssue = {
   assignee: { id: string; name: string; avatarHue: number } | null;
   epic: { id: string; key: string; name: string; color: string } | null;
   sprint: { id: string; name: string; number: number } | null;
+  release: { id: string; name: string; releasedAt: Date | null } | null;
   labels: { label: { id: string; name: string; color: string } }[];
   branches: { id: string; name: string; repo: string }[];
   pullRequests: {
@@ -44,6 +45,13 @@ export function serializeIssue(issue: RawIssue) {
     assignee: issue.assignee,
     epic: issue.epic,
     sprint: issue.sprint,
+    release: issue.release
+      ? {
+          id: issue.release.id,
+          name: issue.release.name,
+          shipped: !!issue.release.releasedAt,
+        }
+      : null,
     labels: issue.labels.map((l) => l.label),
     branches: issue.branches,
     pullRequests: issue.pullRequests as never,
