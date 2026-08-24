@@ -74,11 +74,19 @@ export async function authenticate(header: string | null) {
   };
 }
 
-/** What this assistant is allowed to do with one tool, overrides included. */
+/**
+ * What this assistant is allowed to do with one tool, overrides included.
+ *
+ * A destructive tool can be denied but never waved through: ALLOW is downgraded
+ * to ASK no matter which rung it sits on or what an override says. That way the
+ * guarantee comes from the tool declaring itself, rather than from a list of
+ * names someone has to keep current.
+ */
 export function modeFor(connection: Connection, tool: Tool) {
   const override = connection.assistant.capabilities.find((c) => c.tool === tool.name);
-  if (override) return override.mode as "ALLOW" | "ASK" | "DENY";
-  return tool.modes[connection.level];
+  const mode = override ? (override.mode as "ALLOW" | "ASK" | "DENY") : tool.modes[connection.level];
+  if (tool.destructive && mode === "ALLOW") return "ASK";
+  return mode;
 }
 
 /** The tools this assistant can actually reach — the rest are never advertised. */

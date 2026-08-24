@@ -32,9 +32,14 @@ export const OFF_LIMITS =
   "Starting or ending a sprint · deleting issues, tasks or projects · publishing the public roadmap · answering your own approval requests · your focus sessions, private tasks and time logs";
 
 /**
- * Names an agent is likely to reach for that will never be allowed. They aren't
- * advertised in tools/list, but calling one gets a clear refusal and a log entry
- * rather than a puzzling "unknown tool".
+ * Names an agent is likely to reach for that will never become tools at all.
+ * They aren't advertised in tools/list, but calling one gets a clear refusal and
+ * a log entry rather than a puzzling "unknown tool".
+ *
+ * This is a courtesy for names that don't exist — it is NOT what keeps real
+ * tools safe. A tool that removes something marks itself `destructive`, which
+ * forces it to ASK wherever it appears; see modeFor(). Adding a destructive
+ * tool therefore needs no edit here.
  */
 export const FORBIDDEN_TOOLS: Record<string, string> = {
   start_sprint: "Starting a sprint is off limits to assistants at every level.",

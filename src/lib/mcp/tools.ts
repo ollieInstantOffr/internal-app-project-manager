@@ -36,6 +36,13 @@ export type Tool = {
   title: string;
   description: string;
   group: "Read" | "Write" | "Coordinate";
+  /**
+   * Removes something a person can't get back by clicking undo. Marked tools
+   * are forced to ASK at every level, whatever `modes` or a per-tool override
+   * says — so a destructive tool added later is safe by default rather than
+   * safe only if someone remembers to add it to a list.
+   */
+  destructive?: true;
   inputSchema: JsonSchema;
   /** What each rung of the ladder does with this tool. */
   modes: Record<Level, ToolMode>;
@@ -52,9 +59,10 @@ const HELPER_FREE: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ALLOW
 const HELPER_ASKS: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ASK", FULL: "ALLOW" };
 const FULL_ONLY: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ASK", FULL: "ALLOW" };
 /**
- * Asks a person every time, at every level. For the one destructive thing an
- * assistant can reach: "does all of the above without asking" was never meant to
- * cover deletion. Overridable per tool for anyone who disagrees.
+ * Never at read-only, and asks at the rungs above. Tools that also set
+ * `destructive` cannot be raised past ASK by an override either; this pair says
+ * the same thing twice on purpose, because losing one of them should not
+ * silently make deletion automatic.
  */
 const ALWAYS_ASK: Record<Level, ToolMode> = { READ_ONLY: "DENY", HELPER: "ASK", FULL: "ASK" };
 
@@ -877,6 +885,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "delete_epic",
+    destructive: true,
     title: "Delete an epic",
     description:
       "Removes an epic. Its issues survive and simply lose the grouping — that part can't be undone. A person confirms this every time.",
