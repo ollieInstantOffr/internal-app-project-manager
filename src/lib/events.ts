@@ -12,10 +12,14 @@ const CHANNEL = "arc_events";
 export type ArcEvent = {
   /** Everything is scoped to an org; a stream only forwards its own. */
   orgId: string;
-  kind: "activity" | "notification" | "approval" | "comment";
+  kind: "activity" | "notification" | "approval" | "comment" | "approval-answered" | "assistant";
   /** Optional hints so a client can decide whether it cares. */
   issueId?: string | null;
   userId?: string | null;
+  /** Set on events an MCP stream cares about, so it can filter to its own. */
+  assistantId?: string | null;
+  approvalId?: string | null;
+  detail?: string | null;
 };
 
 type Bus = {

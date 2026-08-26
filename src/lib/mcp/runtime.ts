@@ -9,6 +9,57 @@ import { TOOL_BY_NAME, type ContentBlock, type Tool, type ToolContext } from "./
 
 export const APPROVAL_TTL_MINUTES = 60;
 
+/** How stale lastSeenAt may get before it's worth a write. */
+const SEEN_FRESH_MS = 60_000;
+
+/**
+ * Counting every action in the last hour on every single call is wasteful when
+ * an assistant is nowhere near its limit. The count is cached briefly, but only
+ * while there's comfortable headroom — close to the limit it's recounted every
+ * time, so the cap itself is never approximate.
+ */
+const RATE_CACHE_MS = 10_000;
+const RATE_CACHE_SAFE = 0.8;
+const rateCache = new Map<string, { used: number; at: number }>();
+
+/**
+ * How long the action log keeps each kind of row.
+ *
+ * Reads are the bulk of the traffic and say nothing interesting after the fact;
+ * writes, refusals and blocks are the record of what an assistant actually did,
+ * so they are kept far longer. Revoking a key is documented as keeping its
+ * history, and this is deliberately generous enough not to make a liar of that.
+ */
+const KEEP_READS_DAYS = 14;
+const KEEP_ACTIONS_DAYS = 365;
+
+/** Roughly one request in two hundred does the tidying. */
+const PRUNE_ODDS = 0.005;
+let pruning = false;
+
+/**
+ * Pruned opportunistically rather than on a schedule, because nothing in this
+ * deployment runs the cron endpoints — a retention policy that needs a
+ * scheduler nobody set up is a retention policy that never runs.
+ */
+async function pruneSometimes(assistantId: string) {
+  if (pruning || Math.random() > PRUNE_ODDS) return;
+  pruning = true;
+  try {
+    const day = 86_400_000;
+    await db.agentAction.deleteMany({
+      where: { assistantId, outcome: "READ", createdAt: { lt: new Date(Date.now() - KEEP_READS_DAYS * day) } },
+    });
+    await db.agentAction.deleteMany({
+      where: { assistantId, createdAt: { lt: new Date(Date.now() - KEEP_ACTIONS_DAYS * day) } },
+    });
+  } catch (err) {
+    console.error("[mcp] prune failed", err);
+  } finally {
+    pruning = false;
+  }
+}
+
 export type Connection = Awaited<ReturnType<typeof authenticate>>;
 
 export class McpDenied extends Error {
@@ -57,7 +108,14 @@ export async function authenticate(header: string | null) {
     }
   }
 
-  await db.assistant.update({ where: { id: assistant.id }, data: { lastSeenAt: new Date() } });
+  // Only worth a write when it would actually change the answer. Every
+  // initialize, ping and tools/list used to cost one purely to record "seen
+  // recently", which at a few calls a second is a lot of writes for a field
+  // read by an hours-long timeout.
+  const seenAge = assistant.lastSeenAt ? Date.now() - assistant.lastSeenAt.getTime() : Infinity;
+  if (seenAge > SEEN_FRESH_MS) {
+    await db.assistant.update({ where: { id: assistant.id }, data: { lastSeenAt: new Date() } });
+  }
 
   const ownerId = assistant.createdById ?? assistant.userId;
 
@@ -110,15 +168,27 @@ async function log(opts: {
       targetKey: opts.targetKey ?? null,
     },
   });
+
+  void pruneSometimes(opts.assistantId);
 }
 
 /** "Pause it if it gets carried away" — counted over the last rolling hour. */
 async function overRate(connection: Connection) {
-  const since = new Date(Date.now() - 3600_000);
+  const { id, ratePerHour } = connection.assistant;
+
+  const cached = rateCache.get(id);
+  if (cached && Date.now() - cached.at < RATE_CACHE_MS && cached.used < ratePerHour * RATE_CACHE_SAFE) {
+    // Counting the calls made since the snapshot keeps a burst from slipping
+    // past the cap during the cache window.
+    cached.used += 1;
+    return cached.used >= ratePerHour;
+  }
+
   const used = await db.agentAction.count({
-    where: { assistantId: connection.assistant.id, createdAt: { gte: since } },
+    where: { assistantId: id, createdAt: { gte: new Date(Date.now() - 3600_000) } },
   });
-  return used >= connection.assistant.ratePerHour;
+  rateCache.set(id, { used, at: Date.now() });
+  return used >= ratePerHour;
 }
 
 export type ToolResult = { text: string; blocks?: ContentBlock[]; isError?: boolean };
@@ -257,6 +327,14 @@ export async function runApproved(approvalId: string, deciderId: string) {
       outcome: "APPROVED",
       targetKey: result.targetKey,
     });
+    // Tells the waiting agent straight away, instead of it polling for minutes.
+    void publish({
+      orgId: approval.assistant.orgId,
+      kind: "approval-answered",
+      assistantId: approval.assistantId,
+      approvalId: approval.id,
+      detail: `approved — ${approval.summary}`,
+    });
     return { ok: true, text: result.text };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Something went wrong";
@@ -289,4 +367,18 @@ export async function denyApproval(approvalId: string, deciderId: string) {
     summary: `Asked to ${approval.summary} — you said no`,
     outcome: "DENIED",
   });
+
+  const assistant = await db.assistant.findUnique({
+    where: { id: approval.assistantId },
+    select: { orgId: true },
+  });
+  if (assistant) {
+    void publish({
+      orgId: assistant.orgId,
+      kind: "approval-answered",
+      assistantId: approval.assistantId,
+      approvalId: approvalId,
+      detail: `declined — ${approval.summary}`,
+    });
+  }
 }

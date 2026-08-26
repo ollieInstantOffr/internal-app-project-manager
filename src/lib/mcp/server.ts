@@ -67,13 +67,20 @@ async function dispatch(connection: Connection, request: JsonRpcRequest) {
 
       return rpcResult(id, {
         protocolVersion,
-        capabilities: { tools: { listChanged: false } },
+        // listChanged is honoured over the GET stream; logging carries approval
+        // answers so a waiting agent hears rather than polls.
+        capabilities: { tools: { listChanged: true }, logging: {} },
         serverInfo: SERVER_INFO,
         instructions: instructions(connection),
       });
     }
 
     case "ping":
+      return rpcResult(id, {});
+
+    // Accepted so a client that sets a level doesn't get "method not found";
+    // everything we emit is notice-level anyway.
+    case "logging/setLevel":
       return rpcResult(id, {});
 
     case "tools/list":

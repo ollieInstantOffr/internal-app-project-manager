@@ -52,6 +52,13 @@ export async function listRepoFiles(ctx: ToolContext, projectKey: string, path: 
   };
 }
 
+/**
+ * A lockfile or a minified bundle is not worth a model's context, and a large
+ * one is not worth a JSON-RPC response either. read_attachment truncates at the
+ * same size; this keeps the repo reader honest about it.
+ */
+const MAX_FILE_CHARS = 100_000;
+
 export async function readRepoFile(ctx: ToolContext, projectKey: string, path: string) {
   const { project, repo, token } = await repoAccess(ctx, projectKey);
   const tree = await getRepoTree(repo, token);
@@ -67,5 +74,11 @@ export async function readRepoFile(ctx: ToolContext, projectKey: string, path: s
 
   if (file.content === null) return { text: `${path} is binary or too large to read.` };
 
-  return { text: `${repo}/${path} @ ${tree.ref}\n\n${file.content}` };
+  const clipped = file.content.length > MAX_FILE_CHARS;
+  const body = clipped ? file.content.slice(0, MAX_FILE_CHARS) : file.content;
+  const note = clipped
+    ? `\n\n… truncated at ${MAX_FILE_CHARS / 1000} KB of ${Math.round(file.content.length / 1000)} KB. Ask for a specific part if you need more.`
+    : "";
+
+  return { text: `${repo}/${path} @ ${tree.ref}\n\n${body}${note}` };
 }

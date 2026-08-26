@@ -4,6 +4,7 @@ import { assistantUpdateSchema } from "@/lib/validators";
 import { revokeAssistant, rotateKey } from "@/lib/mcp/assistants";
 import { HttpError } from "@/lib/auth";
 import { Role } from "@/lib/types";
+import { publish } from "@/lib/events";
 import { TOOLS } from "@/lib/mcp/tools";
 import type { Level } from "@/lib/mcp/levels";
 
@@ -60,6 +61,12 @@ export const PATCH = handler(async (req: Request, { params }: Ctx) => {
     },
     include: { capabilities: true },
   });
+
+  // What tools/list would return may have just changed; an open stream is told
+  // so its tool list stops being stale.
+  if (rest.level !== undefined || capabilities !== undefined || rest.enabled !== undefined) {
+    void publish({ orgId: ctx.orgId, kind: "assistant", assistantId: id });
+  }
 
   return json({ ok: true, assistant });
 });
