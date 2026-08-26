@@ -981,6 +981,57 @@ export const TOOLS: Tool[] = [
     },
   },
 
+  {
+    name: "create_project",
+    title: "Create a project",
+    description:
+      "Opens a new project with its own board and issue key. A helper asks first; deleting projects is off limits at every level.",
+    group: "Write",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        key: {
+          type: "string",
+          description: "2–6 letters, e.g. WEB. Derived from the name when omitted.",
+        },
+        color: { type: "string", description: "lime, blue, amber, violet, red or slate" },
+        repo: { type: "string", description: "owner/name, if it has one. Imports nothing." },
+      },
+      required: ["name"],
+    },
+    modes: HELPER_ASKS,
+    summarise: (a) => `create the project "${str(a, "name")}"`,
+    run: async (ctx, args) => {
+      // An assistant confined to certain projects has no business opening new
+      // ones: it could not use what it made, and adding the result to its own
+      // scope would let it widen its reach a project at a time.
+      if (ctx.projectIds.length) {
+        throw new HttpError(
+          403,
+          "This assistant is limited to specific projects, so it can't create new ones. Widen its scope in Arc → Settings → MCP Server first.",
+        );
+      }
+
+      const name = str(args, "name");
+      if (!name) throw new HttpError(400, "A project needs a name");
+
+      const { createProject } = await import("../projects");
+      const { project } = await createProject({
+        orgId: ctx.orgId,
+        actorId: ctx.actorId,
+        name,
+        key: str(args, "key") ? str(args, "key").toUpperCase() : undefined,
+        color: str(args, "color") ? colourOr(str(args, "color"), "lime") : undefined,
+        repoFullName: str(args, "repo") || null,
+      });
+
+      return {
+        text: `Created ${project.key} — ${project.name}. Issues in it will be ${project.key}-1 onwards.`,
+      };
+    },
+  },
+
   /* ── writes a Helper makes on its own ────────────────────── */
   {
     name: "create_issue",
