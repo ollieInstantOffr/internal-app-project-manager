@@ -4190,3 +4190,42 @@ textarea.pub-input { resize: vertical; min-height: 74px; line-height: 1.6; }
   }
   .notif-panel { top: 56px; right: 10px; left: 10px; width: auto; }
 }
+
+/* ── oauth consent ───────────────────────────────────────── */
+
+.consent {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+  border-radius: var(--r-2xl);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  padding: 26px;
+}
+.consent-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 15px var(--display);
+}
+.consent-title { margin: 0; font: 600 20px/1.35 var(--display); letter-spacing: -0.02em; }
+.consent-lede { margin: 0; font: 400 12.5px/1.7 var(--sans); color: var(--muted); }
+.consent-block {
+  border-radius: var(--r-md);
+  background: var(--panel-deep);
+  border: 1px solid var(--line);
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.consent-level { font: 600 13.5px var(--display); color: var(--accent); }
+.consent-detail { font: 400 11.5px/1.65 var(--sans); color: var(--text-3); }
+.consent-foot { font: 400 10.5px var(--sans); color: var(--faint); text-align: center; }

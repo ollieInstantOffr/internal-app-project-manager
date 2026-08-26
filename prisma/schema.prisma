@@ -43,6 +43,7 @@ model User {
   watches        Watcher[]
   notifications  Notification[]
   causedNotifications Notification[] @relation("notificationActor")
+  oauthCodes     OAuthAuthCode[]
   sentInvites    Invite[]         @relation("inviter")
   tokens         ApiToken[]
   apiRuns        ApiRun[]
@@ -1100,7 +1101,12 @@ model Assistant {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  /// Set when the assistant was created through an OAuth authorization rather
+  /// than by someone minting a key by hand.
+  oauthClientId String?
+
   capabilities AssistantCapability[]
+  accessTokens OAuthAccessToken[]
   approvals    AgentApproval[]
   actions      AgentAction[]
 
@@ -1291,4 +1297,70 @@ model Release {
 
   @@unique([projectId, name])
   @@index([projectId])
+}
+
+
+// ─────────────────────────────────────────── oauth (mcp authorization)
+
+/// A client that registered itself, per RFC 7591. claude.ai and Cowork do this
+/// on first connect rather than being configured ahead of time.
+model OAuthClient {
+  id           String  @id @default(cuid())
+  clientId     String  @unique
+  /// SHA-256. Public clients using PKCE have none.
+  clientSecret String?
+  name         String
+  redirectUris String[]
+  /// What the client told us about itself, kept for the consent screen.
+  logoUri      String?
+  clientUri    String?
+
+  createdAt DateTime @default(now())
+
+  codes  OAuthAuthCode[]
+  tokens OAuthAccessToken[]
+}
+
+/// Single-use, short-lived, and bound to the PKCE challenge that created it.
+model OAuthAuthCode {
+  id       String      @id @default(cuid())
+  codeHash String      @unique
+  clientId String
+  client   OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId       String
+  assistantId String
+
+  redirectUri         String
+  codeChallenge       String
+  codeChallengeMethod String   @default("S256")
+  scope               String   @default("mcp")
+
+  usedAt    DateTime?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  @@index([clientId])
+}
+
+model OAuthAccessToken {
+  id        String @id @default(cuid())
+  tokenHash String @unique
+  /// Null once the client stops being given a refresh token.
+  refreshHash String? @unique
+
+  clientId String
+  client   OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  assistantId String
+  assistant   Assistant @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+
+  scope     String    @default("mcp")
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([assistantId])
 }

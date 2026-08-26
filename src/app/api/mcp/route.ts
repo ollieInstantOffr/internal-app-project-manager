@@ -7,6 +7,7 @@ import {
   SUPPORTED_PROTOCOLS,
 } from "@/lib/mcp/server";
 import { subscribe } from "@/lib/events";
+import { wwwAuthenticate } from "@/lib/mcp/oauth";
 
 /** Long enough to beat an idle proxy, short enough to notice a dead client. */
 const HEARTBEAT_MS = 25_000;
@@ -93,7 +94,9 @@ export async function POST(req: Request) {
         status,
         headers: {
           ...CORS,
-          ...(status === 401 ? { "WWW-Authenticate": 'Bearer realm="Arc MCP"' } : {}),
+          // Points at the discovery document, which is how a client that has
+          // never seen Arc finds the authorization server and starts a flow.
+          ...(status === 401 ? { "WWW-Authenticate": wwwAuthenticate() } : {}),
         },
       });
     }

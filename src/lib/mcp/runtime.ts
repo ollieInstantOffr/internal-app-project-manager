@@ -81,8 +81,22 @@ export async function authenticate(header: string | null) {
   }
 
   const raw = header.slice(7).trim();
+
+  // Two ways in, one destination. A key minted by hand and a token issued
+  // through OAuth both resolve to an assistant, so the ladder, the log and
+  // revocation behave identically whichever was used.
+  let tokenHash = sha256(raw);
+  if (raw.startsWith("arc_at_")) {
+    const { assistantForAccessToken } = await import("./oauth");
+    const id = await assistantForAccessToken(raw);
+    if (!id) throw new McpDenied("That token isn't valid.", "unauthorized");
+    const viaOauth = await db.assistant.findUnique({ where: { id }, select: { tokenHash: true } });
+    if (!viaOauth) throw new McpDenied("That token isn't valid.", "unauthorized");
+    tokenHash = viaOauth.tokenHash;
+  }
+
   const assistant = await db.assistant.findUnique({
-    where: { tokenHash: sha256(raw) },
+    where: { tokenHash },
     include: {
       org: { select: { id: true, name: true, slug: true, aiAccess: true } },
       user: { select: { id: true, name: true } },

@@ -82,7 +82,10 @@ const nextConfig: NextConfig = {
         // which tools rather than browsers call and which needs its CORS
         // headers intact, and attachment delivery, which sends a far stricter
         // sandbox policy than a page needs.
-        source: "/((?!api/mcp|api/attachments).*)",
+        // OAuth endpoints are excluded for the same reason as the MCP one:
+        // they are called cross-origin by clients rather than loaded as pages,
+        // and they carry their own CORS headers.
+        source: "/((?!api/mcp|api/attachments|oauth/|\\.well-known/).*)",
         headers: securityHeaders,
       },
     ];
