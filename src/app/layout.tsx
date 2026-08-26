@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import { ToastProvider } from "@/components/Toast";
+import { ServiceWorker } from "@/components/ServiceWorker";
 import "./globals.css";
 
 const sans = IBM_Plex_Sans({
@@ -28,6 +29,20 @@ export const metadata: Metadata = {
   title: "Arc — issues that move themselves",
   description:
     "Git-native project management. An issue needs only a title; branches and PRs move it the rest of the way.",
+  applicationName: "Arc",
+  // Safari reads these for Add to Dock; it ignores most of the manifest.
+  appleWebApp: {
+    capable: true,
+    title: "Arc",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/192", sizes: "192x192", type: "image/png" },
+      { url: "/icons/512", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/180", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -41,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${sans.variable} ${mono.variable} ${display.variable}`}>
       <body>
         <ToastProvider>{children}</ToastProvider>
+        <ServiceWorker />
       </body>
     </html>
   );

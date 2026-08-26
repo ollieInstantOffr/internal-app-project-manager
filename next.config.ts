@@ -3,6 +3,18 @@ import type { NextConfig } from "next";
 const isProd = process.env.NODE_ENV === "production";
 
 /**
+ * Whether the app is actually reached over HTTPS, which is not the same thing
+ * as being a production build — the container runs NODE_ENV=production even
+ * when it's served on http://localhost:3321.
+ *
+ * It matters: upgrade-insecure-requests on an http origin rewrites every
+ * same-origin URL to https, including the service worker script, so
+ * registration fails with an opaque fetch error and "Install" silently never
+ * appears. HSTS is equally meaningless there.
+ */
+const isHttps = (process.env.APP_URL ?? "").startsWith("https://");
+
+/**
  * Content-Security-Policy.
  *
  * `unsafe-inline` on scripts is not where I'd like it, but Next injects inline
@@ -25,13 +37,17 @@ const csp = [
   // authorize endpoint. Without this, signing in with GitHub is blocked.
   `connect-src 'self' https://github.com https://api.github.com${isProd ? "" : " ws: wss:"}`,
   "media-src 'self'",
+  // Without these the service worker never registers and the manifest is
+  // refused, which is a quiet way for "Install" to simply never appear.
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
   // The OAuth handoff leaves the origin, so it has to be allowed here too.
   "form-action 'self' https://github.com",
   "frame-ancestors 'none'",
   "frame-src 'none'",
-  ...(isProd ? ["upgrade-insecure-requests"] : []),
+  ...(isHttps ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
 const securityHeaders = [
@@ -46,7 +62,7 @@ const securityHeaders = [
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   // Only meaningful over HTTPS; browsers ignore it on plain HTTP.
-  ...(isProd
+  ...(isHttps
     ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]
     : []),
 ];
